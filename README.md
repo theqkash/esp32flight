@@ -23,7 +23,7 @@ Web panel with live map, stats and OTA:
 
 ## Features
 
-- **Live flight list** within a configurable radius (10–250 nm) - callsign,
+- **Live flight list** within a configurable radius (10-250 nm) - callsign,
   airline logo, aircraft type, altitude, speed, distance
 - **Flight details**: airline name, route with city + country, progress bar,
   ETA with arrival time, aircraft photo (planespotters.net)
@@ -49,6 +49,68 @@ Web panel with live map, stats and OTA:
   and country flags, Leaflet map, daily/session stats, spotting history with
   CSV export, full device settings, Prometheus `/metrics`, `/screen.bmp`
   screenshots and **OTA firmware updates** from the browser
+
+## Setting up the integrations
+
+All of these are optional and configured in the web panel
+(`http://esp32flight.local`, Device settings) or on the device
+(gear icon, Integrations tab). Empty field = feature off.
+
+### Push notifications to your phone (ntfy.sh)
+
+Free, no account needed.
+
+1. Install the [ntfy](https://ntfy.sh) app (Android/iOS).
+2. In the app, subscribe to a topic with a unique name you invent,
+   e.g. `jans-esp32flight-8341` (anyone who knows the name can read it,
+   so make it non-obvious).
+3. Enter the same topic name in **ntfy.sh topic** and save.
+
+You will get a push for emergency squawks (7500/7600/7700), watchlist
+aircraft entering your radius and, with **Flyover alerts** enabled,
+a heads-up a few minutes before an interesting aircraft passes nearly
+overhead - enough time to step outside.
+
+### Home Assistant / MQTT
+
+Enter your broker URI as **MQTT broker**, e.g.
+`mqtt://user:password@192.168.1.10:1883`. The device announces itself
+via MQTT discovery, so an "esp32flight" device appears in Home Assistant
+automatically with sensors: nearest aircraft (callsign, route, distance),
+aircraft count and session unique count. No YAML needed.
+
+### FlightAware flight numbers
+
+By default flights show radio callsigns (`RYR638T`). A free FlightAware
+AeroAPI key adds the commercial flight number (`FR4238`) next to it.
+Create a **Personal** key at
+[flightaware.com/aeroapi](https://www.flightaware.com/commercial/aeroapi/)
+and paste it into **FlightAware API key**. Results are cached, so the free
+monthly credit is more than enough.
+
+### Webhook
+
+On every alert (emergency, watchlist, flyover) the device POSTs
+`{"source": "esp32flight", "title": "...", "message": "..."}` to the URL
+in **Webhook URL**. Point it at Node-RED, n8n, a Discord/Slack bridge or
+your own endpoint.
+
+### Watchlist
+
+Comma-separated registration or callsign prefixes in **Watchlist**,
+e.g. `SP-LR,RCH,A388`. Matching aircraft are highlighted in gold and
+push-notified. Military aircraft and notable heavies (A380, AN-124,
+C-17, B-52...) are always highlighted, no entry needed.
+
+### Local ADS-B receiver (dump1090 / readsb)
+
+If you run your own receiver (RTL-SDR dongle on a Raspberry Pi with
+dump1090, readsb, or a full FlightRadar24/ADSBx feeder image), point
+**Local receiver URL** at its JSON output, e.g.
+`http://192.168.1.50:8080/data/aircraft.json`. The device then reads
+aircraft straight from your antenna instead of internet APIs: faster
+updates, no rate limits, works even without internet. When the receiver
+is unreachable it falls back to the internet sources automatically.
 
 ## Data sources (all free, no API keys)
 

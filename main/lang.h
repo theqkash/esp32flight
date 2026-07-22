@@ -35,6 +35,7 @@ typedef struct {
     const char *tab_net, *tab_place, *tab_filters, *tab_integr, *tab_system;
     const char *cpa_lbl, *night_lbl, *night_from, *night_to, *amb_idle_lbl;
     const char *lbl_ntfy, *lbl_mqtt, *lbl_fa, *lbl_watch, *lbl_webhook, *lbl_ladsb;
+    const char *hint_ntfy, *hint_mqtt, *hint_fa, *hint_webhook, *hint_ladsb;
     const char *avg_word, *best_word;
     /* stats view */
     const char *stats_title;

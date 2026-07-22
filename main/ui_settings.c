@@ -294,6 +294,18 @@ static lv_obj_t *add_label(lv_obj_t *parent, const char *text, int x, int y)
     return l;
 }
 
+static lv_obj_t *add_hint(lv_obj_t *parent, const char *text, int x, int y, int w)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_label_set_text(l, text);
+    lv_obj_set_style_text_font(l, &font_pl_14, 0);
+    lv_obj_set_style_text_color(l, COL_DIM, 0);
+    lv_obj_set_width(l, w);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+    lv_obj_set_pos(l, x, y);
+    return l;
+}
+
 static lv_obj_t *add_textarea(lv_obj_t *parent, int x, int y, int w, const char *value, bool password)
 {
     lv_obj_t *ta = lv_textarea_create(parent);
@@ -464,14 +476,19 @@ void ui_settings_open(void)
     p = tab_page(tv, L()->tab_integr);
     add_label(p, L()->lbl_ntfy, 0, 0);
     s_ta_ntfy = add_textarea(p, 0, 24, 360, cfg->ntfy_topic, false);
+    add_hint(p, L()->hint_ntfy, 0, 70, 360);
     add_label(p, L()->lbl_mqtt, 380, 0);
     s_ta_mqtt = add_textarea(p, 380, 24, 360, cfg->mqtt_uri, false);
-    add_label(p, L()->lbl_fa, 0, 84);
-    s_ta_fa = add_textarea(p, 0, 108, 360, cfg->fa_key, false);
-    add_label(p, L()->lbl_webhook, 380, 84);
-    s_ta_webhook = add_textarea(p, 380, 108, 360, cfg->webhook_url, false);
-    add_label(p, L()->lbl_ladsb, 0, 168);
-    s_ta_ladsb = add_textarea(p, 0, 192, 740, cfg->local_adsb, false);
+    add_hint(p, L()->hint_mqtt, 380, 70, 360);
+    add_label(p, L()->lbl_fa, 0, 118);
+    s_ta_fa = add_textarea(p, 0, 142, 360, cfg->fa_key, false);
+    add_hint(p, L()->hint_fa, 0, 188, 360);
+    add_label(p, L()->lbl_webhook, 380, 118);
+    s_ta_webhook = add_textarea(p, 380, 142, 360, cfg->webhook_url, false);
+    add_hint(p, L()->hint_webhook, 380, 188, 360);
+    add_label(p, L()->lbl_ladsb, 0, 236);
+    s_ta_ladsb = add_textarea(p, 0, 260, 740, cfg->local_adsb, false);
+    add_hint(p, L()->hint_ladsb, 0, 306, 740);
 
     /* --- System --- */
     p = tab_page(tv, L()->tab_system);
