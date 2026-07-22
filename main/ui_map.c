@@ -366,8 +366,10 @@ static void map_tiles_task(void *arg)
     /* if the overlay was reopened for another flight while we rendered,
      * render again for the current one */
     if (s_overlay != NULL && gen != s_generation) {
-        xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
-                                (void *)(intptr_t)s_generation, 3, NULL, 0);
+        if (xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 10240,
+                                    (void *)(intptr_t)s_generation, 3, NULL, 0) != pdPASS) {
+            s_tiles_busy = false;
+        }
     } else {
         s_tiles_busy = false;
     }
@@ -403,7 +405,9 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
     /* a still-running worker will respawn itself for this generation */
     if (!s_tiles_busy) {
         s_tiles_busy = true;
-        xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
-                                (void *)(intptr_t)s_generation, 3, NULL, 0);
+        if (xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 10240,
+                                    (void *)(intptr_t)s_generation, 3, NULL, 0) != pdPASS) {
+            s_tiles_busy = false;
+        }
     }
 }

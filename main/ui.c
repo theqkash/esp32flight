@@ -26,12 +26,15 @@
 #include "freertos/task.h"
 #include "esp_heap_caps.h"
 #include "lvgl_port.h"
+#include "esp_log.h"
 
 #define LIST_W        310
 #define HEADER_H      48
 #define MAX_SHOWN     20
 
 #include "theme.h"
+
+static const char *TAG = "ui";
 
 LV_IMG_DECLARE(img_plane);
 
@@ -131,6 +134,7 @@ void ui_set_home(double lat, double lon)
     s_home_lat = lat;
     s_home_lon = lon;
     s_home_ok = true;
+    ESP_LOGI("ui", "home set: %.4f, %.4f", lat, lon);
 }
 
 /* Detail widgets */
@@ -557,7 +561,11 @@ static void emb_tiles_want(const aircraft_t *ac, const route_info_t *rt)
 
     strlcpy(s_emb_want_key, key, sizeof(s_emb_want_key));
     s_emb_busy = true;
-    xTaskCreatePinnedToCore(emb_tiles_task, "emb_tiles", 12288, NULL, 3, NULL, 0);
+    if (xTaskCreatePinnedToCore(emb_tiles_task, "emb_tiles", 10240,
+                                NULL, 3, NULL, 0) != pdPASS) {
+        ESP_LOGE(TAG, "emb tiles: task spawn failed (low memory)");
+        s_emb_busy = false;
+    }
 }
 
 /* Rotatable plane sprite, tinted by altitude at render time */
@@ -847,7 +855,12 @@ static void radar_tiles_want(void)
                 s_home_lat, s_home_lon, radius_nm);
     strlcpy(s_radar_want, key, sizeof(s_radar_want));
     s_radar_busy = true;
-    xTaskCreatePinnedToCore(radar_tiles_task, "radar_tiles", 12288, NULL, 3, NULL, 0);
+    ESP_LOGI(TAG, "radar tiles: spawn for %s", key);
+    if (xTaskCreatePinnedToCore(radar_tiles_task, "radar_tiles", 10240,
+                                NULL, 3, NULL, 0) != pdPASS) {
+        ESP_LOGE(TAG, "radar tiles: task spawn failed (low memory)");
+        s_radar_busy = false;
+    }
 }
 
 static void build_radar_panel(lv_obj_t *scr)
