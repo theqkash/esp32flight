@@ -8,6 +8,7 @@
 #include "flight_task.h"
 #include "logos.h"
 #include "settings.h"
+#include "tilemap.h"
 #include "ui.h"
 #include "ui_map.h"
 #include "web_server.h"
@@ -33,6 +34,7 @@ void app_main(void)
 
     logos_init();
     airports_init();
+    tilemap_init();
     /* pre-decode both world maps so map opens never decode PNGs at draw time */
     ui_map_get_image();
     ui_map_get_image_small();

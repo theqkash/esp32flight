@@ -45,4 +45,9 @@ CONFIG_LV_USE_FONT_COMPRESSED=y
 # Networking
 CONFIG_ESP_TLS_INSECURE=n
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+# Several concurrent TLS sessions (API + tiles + integrations): shrink
+# per-connection RAM or ssl_setup starts failing with alloc errors
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+CONFIG_MBEDTLS_DYNAMIC_FREE_CONFIG_DATA=y
+CONFIG_MBEDTLS_DYNAMIC_FREE_CA_CERT=y
 CONFIG_SPIFFS_OBJ_NAME_LEN=48

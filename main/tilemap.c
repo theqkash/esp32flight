@@ -11,7 +11,20 @@
 
 #include "extra/libs/png/lodepng.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 static const char *TAG = "tilemap";
+
+/* Only one tile render at a time: concurrent renders (radar + ambient +
+ * full map) each open a TLS session and the combined memory peak starves
+ * mbedTLS into alloc failures. */
+static SemaphoreHandle_t s_render_mux;
+
+void tilemap_init(void)
+{
+    s_render_mux = xSemaphoreCreateMutex();
+}
 
 #define TILE_PX     256
 #define MAX_ZOOM    7
@@ -72,6 +85,10 @@ static bool blit_tile(esp_http_client_handle_t client, tile_sink_t *sink,
     if (err != ESP_OK || status != 200 || sink->len < 8) {
         ESP_LOGW(TAG, "tile %d/%d/%d: %s http=%d len=%u",
                  z, tx, ty, esp_err_to_name(err), status, (unsigned)sink->len);
+        /* after a TLS-level error the session context may be gone; reusing
+         * the connection crashes inside mbedtls_ssl_write. Force a clean
+         * reconnect for the next tile. */
+        esp_http_client_close(client);
         return false;
     }
     const uint8_t *fetch_buf = sink->buf;
@@ -103,10 +120,10 @@ static bool blit_tile(esp_http_client_handle_t client, tile_sink_t *sink,
     return true;
 }
 
-bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
-                    double lat_min, double lat_max,
-                    double lon_min, double lon_max,
-                    tile_view_t *out_view)
+static bool render_impl(uint16_t *dst, int dst_w, int dst_h,
+                        double lat_min, double lat_max,
+                        double lon_min, double lon_max,
+                        tile_view_t *out_view)
 {
     double nx0, ny0, nx1, ny1;
     merc_norm(lat_max, lon_min, &nx0, &ny0);   /* top-left */
@@ -220,7 +237,8 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
     esp_http_client_cleanup(client);
     free(sink.buf);
 
-    ESP_LOGI(TAG, "z%d: %d/%d tiles", z, ok, total);
+    ESP_LOGI(TAG, "z%d: %d/%d tiles (dst %dx%d, bbox %.3f..%.3f / %.3f..%.3f)",
+             z, ok, total, dst_w, dst_h, lat_min, lat_max, lon_min, lon_max);
     if (ok == 0) {
         return false;
     }
@@ -230,4 +248,20 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
     out_view->w = dst_w;
     out_view->h = dst_h;
     return true;
+}
+
+bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
+                    double lat_min, double lat_max,
+                    double lon_min, double lon_max,
+                    tile_view_t *out_view)
+{
+    if (s_render_mux != NULL) {
+        xSemaphoreTake(s_render_mux, portMAX_DELAY);
+    }
+    bool ok = render_impl(dst, dst_w, dst_h,
+                          lat_min, lat_max, lon_min, lon_max, out_view);
+    if (s_render_mux != NULL) {
+        xSemaphoreGive(s_render_mux);
+    }
+    return ok;
 }

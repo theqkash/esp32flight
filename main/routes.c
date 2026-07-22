@@ -66,6 +66,14 @@ static void fix_city(airport_t *ap)
         { "EPKK", "Kraków" },
         { "EPWR", "Wrocław" },
         { "EPPO", "Poznań" },
+        { "LIMC", "Milan" },
+        { "LIME", "Bergamo" },
+        { "LFPG", "Paris" },
+        { "LFPO", "Paris" },
+        { "EGKK", "London" },
+        { "EGSS", "London" },
+        { "EGGW", "London" },
+        { "EGLC", "London" },
     };
     for (size_t i = 0; i < sizeof(overrides) / sizeof(overrides[0]); i++) {
         if (strcmp(ap->icao, overrides[i].icao) == 0) {

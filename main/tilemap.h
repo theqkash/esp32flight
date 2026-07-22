@@ -12,6 +12,9 @@ typedef struct {
     int    w, h;
 } tile_view_t;
 
+/* Call once at startup (creates the render serialization mutex). */
+void tilemap_init(void);
+
 /* Compose a view around the bbox into dst (RGB565, dst_w x dst_h).
  * Returns false when tiles could not be fetched (offline etc.). */
 bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,

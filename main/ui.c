@@ -842,6 +842,9 @@ static void radar_tiles_want(void)
     s_radar_bbox[1] = s_home_lat + dlat;
     s_radar_bbox[2] = s_home_lon - dlon;
     s_radar_bbox[3] = s_home_lon + dlon;
+    LV_LOG_USER("radar bbox %.3f..%.3f / %.3f..%.3f (home %.3f,%.3f r=%d)",
+                s_radar_bbox[0], s_radar_bbox[1], s_radar_bbox[2], s_radar_bbox[3],
+                s_home_lat, s_home_lon, radius_nm);
     strlcpy(s_radar_want, key, sizeof(s_radar_want));
     s_radar_busy = true;
     xTaskCreatePinnedToCore(radar_tiles_task, "radar_tiles", 12288, NULL, 3, NULL, 0);
