@@ -14,6 +14,7 @@
 #include "ui_photo.h"
 #include "geo_math.h"
 #include "logos.h"
+#include "flags.h"
 #include "flight_task.h"
 #include "regcountry.h"
 #include "routes.h"
@@ -167,6 +168,7 @@ static lv_obj_t *s_callsign_label;
 static lv_obj_t *s_airline_label;
 static lv_obj_t *s_type_label;
 static lv_obj_t *s_orig_code, *s_orig_city;
+static lv_obj_t *s_orig_flag, *s_dest_flag, *s_reg_flag;
 static lv_obj_t *s_dest_code, *s_dest_city;
 static lv_obj_t *s_progress_bar;
 static lv_obj_t *s_progress_label;
@@ -1471,6 +1473,9 @@ static void build_detail(lv_obj_t *scr)
     lv_obj_set_pos(s_orig_code, 0, 116);
     s_orig_city = make_label(s_detail_content, &font_pl_14, COL_DIM);
     lv_obj_set_pos(s_orig_city, 0, 152);
+    s_orig_flag = lv_img_create(s_detail_content);
+    lv_obj_set_pos(s_orig_flag, 0, 150);
+    lv_obj_add_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_t *arrow = make_label(s_detail_content, &lv_font_montserrat_24, COL_ACCENT);
     lv_label_set_text(arrow, LV_SYMBOL_RIGHT);
@@ -1484,6 +1489,9 @@ static void build_detail(lv_obj_t *scr)
     lv_obj_set_style_text_align(s_dest_city, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_pos(s_dest_city, 258, 152);
     lv_obj_set_width(s_dest_city, 200);
+    s_dest_flag = lv_img_create(s_detail_content);
+    lv_obj_set_pos(s_dest_flag, 428, 150);
+    lv_obj_add_flag(s_dest_flag, LV_OBJ_FLAG_HIDDEN);
 
     s_progress_bar = lv_bar_create(s_detail_content);
     lv_obj_set_size(s_progress_bar, 458, 12);
@@ -1514,7 +1522,10 @@ static void build_detail(lv_obj_t *scr)
     make_stat(grid, 2, 0, L()->st_vrate, &s_stat_vals[2]);
     make_stat(grid, 0, 1, L()->st_dist, &s_stat_vals[3]);
     make_stat(grid, 1, 1, L()->st_track, &s_stat_vals[4]);
-    make_stat(grid, 2, 1, L()->st_reg, &s_stat_vals[5]);
+    lv_obj_t *regbox = make_stat(grid, 2, 1, L()->st_reg, &s_stat_vals[5]);
+    s_reg_flag = lv_img_create(regbox);
+    lv_obj_align(s_reg_flag, LV_ALIGN_TOP_RIGHT, 0, -2);
+    lv_obj_add_flag(s_reg_flag, LV_OBJ_FLAG_HIDDEN);
 }
 
 void ui_init(void)
@@ -1636,6 +1647,15 @@ static void render_detail(void)
         lv_label_set_text(s_orig_code,
                           rt->origin.iata[0] ? rt->origin.iata : rt->origin.icao);
         airport_local_time(&rt->origin, lt, sizeof(lt));
+        const lv_img_dsc_t *ofl = flags_get(rt->origin.country);
+        if (ofl != NULL) {
+            lv_img_set_src(s_orig_flag, ofl);
+            lv_obj_clear_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(s_orig_city, 38, 152);
+        } else {
+            lv_obj_add_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(s_orig_city, 0, 152);
+        }
         lv_label_set_text_fmt(s_orig_city, "%s%s%s%s%s",
                               rt->origin.city,
                               rt->origin.country[0] ? " (" : "",
@@ -1649,6 +1669,15 @@ static void render_detail(void)
         lv_label_set_text(s_dest_code,
                           rt->destination.iata[0] ? rt->destination.iata : rt->destination.icao);
         airport_local_time(&rt->destination, lt, sizeof(lt));
+        const lv_img_dsc_t *dfl = flags_get(rt->destination.country);
+        if (dfl != NULL) {
+            lv_img_set_src(s_dest_flag, dfl);
+            lv_obj_clear_flag(s_dest_flag, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_width(s_dest_city, 162);
+        } else {
+            lv_obj_add_flag(s_dest_flag, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_width(s_dest_city, 200);
+        }
         lv_label_set_text_fmt(s_dest_city, "%s%s%s%s",
                               rt->destination.city,
                               rt->destination.country[0] ? " (" : "",
@@ -1673,8 +1702,11 @@ static void render_detail(void)
     } else {
         lv_label_set_text(s_orig_code, "----");
         lv_label_set_text(s_orig_city, L()->route_unknown);
+        lv_obj_set_pos(s_orig_city, 0, 152);
         lv_label_set_text(s_dest_code, "----");
         lv_label_set_text(s_dest_city, "");
+        lv_obj_add_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_dest_flag, LV_OBJ_FLAG_HIDDEN);
         lv_bar_set_value(s_progress_bar, 0, LV_ANIM_OFF);
         lv_label_set_text(s_progress_label, "");
     }
@@ -1694,6 +1726,13 @@ static void render_detail(void)
     snprintf(buf, sizeof(buf), "%.0f\xC2\xB0", (double)ac->track_deg);
     lv_label_set_text(s_stat_vals[4], buf);
     const char *cc = reg_country(ac->reg);
+    const lv_img_dsc_t *rfl = ac->reg[0] && cc != NULL ? flags_get(cc) : NULL;
+    if (rfl != NULL) {
+        lv_img_set_src(s_reg_flag, rfl);
+        lv_obj_clear_flag(s_reg_flag, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_reg_flag, LV_OBJ_FLAG_HIDDEN);
+    }
     if (ac->reg[0] && cc != NULL) {
         /* ASCII only: this tile uses the built-in Montserrat font */
         snprintf(buf, sizeof(buf), "%s (%s)", ac->reg, cc);

@@ -8,3 +8,6 @@ backup/
 assets/logos/*.png
 assets/map/*.png
 assets/airports.tsv
+.cache/
+# generated assets (see tools/fetch_flags.sh)
+assets/flags/*.png

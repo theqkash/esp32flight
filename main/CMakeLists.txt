@@ -10,6 +10,7 @@ idf_component_register(
         "flight_data.c"
         "routes.c"
         "logos.c"
+        "flags.c"
         "airlines.c"
         "airports.c"
         "dailystats.c"
