@@ -53,6 +53,8 @@ static void fix_city(airport_t *ap)
         { "EPMO", "Warsaw-Modlin" },
         { "LTFM", "Istanbul" },
         { "EPKK", "Kraków" },
+        { "EPWR", "Wrocław" },
+        { "EPPO", "Poznań" },
     };
     for (size_t i = 0; i < sizeof(overrides) / sizeof(overrides[0]); i++) {
         if (strcmp(ap->icao, overrides[i].icao) == 0) {
@@ -60,18 +62,27 @@ static void fix_city(airport_t *ap)
             return;
         }
     }
-    /* If the "city" is actually an airport name, trim the suffix - but never
-     * down to nothing. */
+    /* If the "city" is actually an airport name, extract the city part.
+     * "Debrecen International Airport" -> "Debrecen" (suffix at the end),
+     * "Copernicus Airport Wroclaw" -> "Wroclaw" (city after "Airport"). */
     static const char *suffixes[] = {
         " International Airport", " Intl Airport", " Airport",
         " Airfield", " Air Base", " Airbase",
     };
     for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); i++) {
         char *at = strstr(ap->city, suffixes[i]);
-        if (at != NULL && at != ap->city) {
-            *at = '\0';
-            break;
+        if (at == NULL || at == ap->city) {
+            continue;
         }
+        const char *tail = at + strlen(suffixes[i]);
+        if (*tail == '\0') {
+            *at = '\0';                 /* "... Airport" at the end */
+        } else if (*tail == ' ' && tail[1] != '\0') {
+            memmove(ap->city, tail + 1, strlen(tail + 1) + 1);
+        } else {
+            continue;
+        }
+        break;
     }
     /* "Poznań–Ławica Henryk Wieniawski" -> "Poznań" (en-dash separates the
      * city from the airport's proper name) */
