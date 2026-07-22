@@ -41,14 +41,18 @@ Web panel with live map, stats and OTA:
   prediction (CPA) with push alerts, METAR from the nearest station
 - **Local ADS-B receiver support**: point it at a dump1090/readsb
   `aircraft.json` on your LAN and go fully independent of internet APIs
-- **Full-screen map screensaver** after idle, night mode with backlight-off
+- **Full-screen map screensaver** after idle (with your observation circle drawn on the map), night mode with backlight-off
   quiet hours, first-boot setup screen
+- **Country flags** for airports and registrations, on the device screen
+  and in the web panel
 - **Integrations**: ntfy.sh push, MQTT with Home Assistant discovery,
   generic webhooks, optional FlightAware AeroAPI for IATA flight numbers
-- **Web panel** at `http://esp32flight.local` - live flight table with trails
-  and country flags, Leaflet map, daily/session stats, spotting history with
-  CSV export, full device settings, Prometheus `/metrics`, `/screen.bmp`
-  screenshots and **OTA firmware updates** from the browser
+- **Web panel** at `http://esp32flight.local` - tabbed (Live / History /
+  Settings / API): live flight table with trails and flags, Leaflet map,
+  daily/session stats, spotting history with CSV export, full device
+  settings with per-field help, built-in HTTP API reference, Prometheus
+  `/metrics`, `/screen.bmp` screenshots and **OTA firmware updates** from
+  the browser; optional password (HTTP Basic Auth)
 
 ## Setting up the integrations
 
