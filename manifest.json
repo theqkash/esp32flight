@@ -1,13 +1,13 @@
 {
   "name": "esp32flight",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "new_install_prompt_erase": false,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/esp32flight-v0.2.0-full.bin",
+          "path": "firmware/esp32flight-v0.2.1-full.bin",
           "offset": 0
         }
       ]
