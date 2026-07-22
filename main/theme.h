@@ -17,4 +17,7 @@ typedef struct {
 /* Active theme, resolved from settings_get()->theme. */
 const app_theme_t *app_theme(void);
 
-const char *theme_names_option_string(void);   /* "Dark\nLight\nBlack" */
+const char *theme_names_option_string(void);   /* "Dark\nLight\nBlack..." */
+
+/* FR24-style altitude color: low = warm, cruise = cool. */
+lv_color_t alt_color(int alt_ft, bool on_ground);

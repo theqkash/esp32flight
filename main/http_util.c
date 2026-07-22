@@ -32,6 +32,12 @@ static esp_err_t http_event_cb(esp_http_client_event_t *evt)
 
 esp_err_t http_get_to_buffer(const char *url, char *buf, size_t buf_size, size_t *out_len)
 {
+    return http_get_to_buffer_hdr(url, buf, buf_size, out_len, NULL, NULL);
+}
+
+esp_err_t http_get_to_buffer_hdr(const char *url, char *buf, size_t buf_size, size_t *out_len,
+                                 const char *hdr_key, const char *hdr_val)
+{
     sink_t sink = { .buf = buf, .cap = buf_size, .len = 0, .overflow = false };
 
     esp_http_client_config_t config = {
@@ -46,6 +52,9 @@ esp_err_t http_get_to_buffer(const char *url, char *buf, size_t buf_size, size_t
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (client == NULL) {
         return ESP_FAIL;
+    }
+    if (hdr_key != NULL && hdr_val != NULL) {
+        esp_http_client_set_header(client, hdr_key, hdr_val);
     }
 
     esp_err_t err = esp_http_client_perform(client);
@@ -70,4 +79,31 @@ esp_err_t http_get_to_buffer(const char *url, char *buf, size_t buf_size, size_t
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+
+esp_err_t http_post_text(const char *url, const char *body,
+                         const char *hdr_key, const char *hdr_val)
+{
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_POST,
+        .timeout_ms = 10000,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .user_agent = "esp32flight/1.0",
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        return ESP_FAIL;
+    }
+    if (hdr_key != NULL && hdr_val != NULL) {
+        esp_http_client_set_header(client, hdr_key, hdr_val);
+    }
+    esp_http_client_set_post_field(client, body, strlen(body));
+    esp_err_t err = esp_http_client_perform(client);
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+    if (err == ESP_OK && (status < 200 || status >= 300)) {
+        err = ESP_FAIL;
+    }
+    return err;
 }

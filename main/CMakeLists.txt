@@ -12,11 +12,18 @@ idf_component_register(
         "logos.c"
         "airlines.c"
         "airports.c"
+        "faflight.c"
         "flight_task.c"
         "geocode.c"
+        "jpeg_dec.c"
         "lang.c"
+        "mqtt_pub.c"
+        "notify.c"
+        "obslog.c"
         "settings.c"
         "theme.c"
+        "tilemap.c"
+        "trails.c"
         "tz.c"
         "weather.c"
         "ui.c"
@@ -28,7 +35,7 @@ idf_component_register(
         "font_pl_16.c"
         "font_pl_20.c"
     INCLUDE_DIRS "."
-    REQUIRES esp_wifi esp_http_client esp_http_server esp-tls nvs_flash json spiffs esp_netif app_update
+    REQUIRES esp_wifi esp_http_client esp_http_server esp-tls nvs_flash json spiffs esp_netif app_update mqtt
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE=1)

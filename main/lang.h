@@ -27,6 +27,12 @@ typedef struct {
     const char *search_radius, *theme_lbl, *language_lbl, *save;
     const char *ota_unlock;
     const char *ota_hint;
+    /* stats view */
+    const char *stats_title;
+    const char *st_hourly;
+    const char *st_top_airlines;
+    const char *st_unique;
+    const char *st_fastest, *st_farthest, *st_highest;
     const char *dd_networks, *dd_results;
     const char *scanning, *no_networks, *not_found, *searching;
     const char *saved_restarting;

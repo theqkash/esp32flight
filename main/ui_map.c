@@ -1,13 +1,19 @@
 #include "ui_map.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "lvgl.h"
 #include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "fonts.h"
 #include "geo_math.h"
 #include "lang.h"
+#include "lvgl_port.h"
+#include "tilemap.h"
+#include "trails.h"
 
 #include "theme.h"
 
@@ -27,14 +33,29 @@
 
 static lv_obj_t *s_overlay;
 static lv_point_t s_path[PATH_PTS];
+static lv_point_t s_trail_pts[TRAIL_LEN];
 static lv_img_dsc_t s_map_dsc, s_map_small_dsc;
 static uint8_t *s_map_data, *s_map_small_data;
+
+/* Snapshot of what the overlay shows (worker task rebuilds from these) */
+static aircraft_t   s_ac;
+static route_info_t s_rt;
+static bool         s_have_route;
+
+/* Tile view for the full-screen map */
+static uint16_t     *s_tiles;
+static lv_img_dsc_t  s_tiles_dsc;
+static tile_view_t   s_view;
+static bool          s_view_ok;
+static volatile bool s_tiles_busy;
+static int           s_generation;   /* bumped each open/close */
 
 static void close_cb(lv_event_t *e)
 {
     if (s_overlay != NULL) {
         lv_obj_del(s_overlay);
         s_overlay = NULL;
+        s_generation++;
     }
 }
 
@@ -87,6 +108,13 @@ const lv_img_dsc_t *ui_map_get_image_small(void)
 
 static void project(double lat, double lon, lv_coord_t *x, lv_coord_t *y)
 {
+    if (s_view_ok) {
+        int xx, yy;
+        tilemap_project(&s_view, lat, lon, &xx, &yy);
+        *x = (lv_coord_t)xx;
+        *y = (lv_coord_t)(yy + MAP_Y);
+        return;
+    }
     *x = (lv_coord_t)((lon + 180.0) / 360.0 * MAP_W);
     *y = (lv_coord_t)(MAP_Y + (90.0 - lat) / 180.0 * MAP_H);
 }
@@ -127,31 +155,21 @@ static void code_label(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_pos(l, x, y);
 }
 
-void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
+static void build_content(void)
 {
-    if (s_overlay != NULL) {
-        return;
-    }
-    bool have_route = rt != NULL && rt->valid;
-
-    s_overlay = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(s_overlay, 800, 480);
-    lv_obj_set_pos(s_overlay, 0, 0);
-    lv_obj_set_style_bg_color(s_overlay, COL_BG, 0);
-    lv_obj_set_style_border_width(s_overlay, 0, 0);
-    lv_obj_set_style_radius(s_overlay, 0, 0);
-    lv_obj_set_style_pad_all(s_overlay, 0, 0);
-    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    const aircraft_t *ac = &s_ac;
+    const route_info_t *rt = &s_rt;
+    bool have_route = s_have_route;
 
     /* Header */
-    char title[96];
+    char title[200];
     if (have_route) {
-        snprintf(title, sizeof(title), "%s   %s " LV_SYMBOL_RIGHT " %s",
+        snprintf(title, sizeof(title), "%.8s   %.4s " LV_SYMBOL_RIGHT " %.4s",
                  ac->callsign[0] ? ac->callsign : ac->hex,
                  rt->origin.iata[0] ? rt->origin.iata : rt->origin.icao,
                  rt->destination.iata[0] ? rt->destination.iata : rt->destination.icao);
     } else {
-        snprintf(title, sizeof(title), "%s   (%s)",
+        snprintf(title, sizeof(title), "%.8s   (%.60s)",
                  ac->callsign[0] ? ac->callsign : ac->hex, L()->route_unknown);
     }
     lv_obj_t *tl = lv_label_create(s_overlay);
@@ -169,8 +187,8 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
     lv_label_set_text(xl, LV_SYMBOL_CLOSE);
     lv_obj_center(xl);
 
-    /* World map */
-    const lv_img_dsc_t *map = ui_map_get_image();
+    /* Map: tile view when rendered, bundled world map otherwise */
+    const lv_img_dsc_t *map = s_view_ok ? &s_tiles_dsc : ui_map_get_image();
     if (map != NULL) {
         lv_obj_t *img = lv_img_create(s_overlay);
         lv_img_set_src(img, map);
@@ -178,6 +196,23 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
     }
 
     lv_coord_t x, y;
+
+    /* breadcrumb trail */
+    float tlat[TRAIL_LEN], tlon[TRAIL_LEN];
+    int tn = trails_get(ac->hex, tlat, tlon, TRAIL_LEN);
+    if (tn >= 2) {
+        for (int k = 0; k < tn; k++) {
+            project(tlat[k], tlon[k], &x, &y);
+            s_trail_pts[k].x = x;
+            s_trail_pts[k].y = y;
+        }
+        lv_obj_t *trail = lv_line_create(s_overlay);
+        lv_line_set_points(trail, s_trail_pts, tn);
+        lv_obj_set_style_line_width(trail, 2, 0);
+        lv_obj_set_style_line_color(trail, COL_PLANE, 0);
+        lv_obj_set_style_line_opa(trail, LV_OPA_60, 0);
+    }
+
     if (have_route) {
         /* Great-circle path */
         for (int i = 0; i < PATH_PTS; i++) {
@@ -209,7 +244,7 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
 
     if (ac->has_pos) {
         project(ac->lat, ac->lon, &x, &y);
-        marker(s_overlay, x, y, 14, COL_PLANE);
+        marker(s_overlay, x, y, 14, alt_color(ac->alt_baro_ft, ac->on_ground));
         if (!have_route) {
             code_label(s_overlay, x + 8, y - 24,
                        ac->callsign[0] ? ac->callsign : ac->hex, COL_PLANE);
@@ -239,4 +274,92 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
     lv_obj_set_style_text_color(fl, COL_DIM, 0);
     lv_label_set_text(fl, foot);
     lv_obj_align(fl, LV_ALIGN_BOTTOM_LEFT, 16, -6);
+}
+
+static void map_tiles_task(void *arg)
+{
+    int gen = (int)(intptr_t)arg;
+
+    double latmin, latmax, lonmin, lonmax;
+    if (s_have_route) {
+        latmin = latmax = s_rt.origin.lat;
+        lonmin = lonmax = s_rt.origin.lon;
+        double lats[2] = { s_rt.destination.lat, s_ac.has_pos ? s_ac.lat : s_rt.destination.lat };
+        double lons[2] = { s_rt.destination.lon, s_ac.has_pos ? s_ac.lon : s_rt.destination.lon };
+        for (int i = 0; i < 2; i++) {
+            if (lats[i] < latmin) latmin = lats[i];
+            if (lats[i] > latmax) latmax = lats[i];
+            if (lons[i] < lonmin) lonmin = lons[i];
+            if (lons[i] > lonmax) lonmax = lons[i];
+        }
+    } else if (s_ac.has_pos) {
+        latmin = s_ac.lat - 1.0;
+        latmax = s_ac.lat + 1.0;
+        lonmin = s_ac.lon - 2.0;
+        lonmax = s_ac.lon + 2.0;
+    } else {
+        s_tiles_busy = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    double mlat = (latmax - latmin) * 0.15 + 0.4;
+    double mlon = (lonmax - lonmin) * 0.15 + 0.8;
+
+    if (s_tiles == NULL) {
+        s_tiles = heap_caps_malloc(MAP_W * MAP_H * 2, MALLOC_CAP_SPIRAM);
+    }
+    tile_view_t view;
+    bool ok = s_tiles != NULL &&
+              tilemap_render(s_tiles, MAP_W, MAP_H,
+                             latmin - mlat, latmax + mlat,
+                             lonmin - mlon, lonmax + mlon, &view);
+
+    if (lvgl_port_lock(-1)) {
+        if (ok && s_overlay != NULL && gen == s_generation) {
+            s_view = view;
+            s_view_ok = true;
+            s_tiles_dsc.header.always_zero = 0;
+            s_tiles_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+            s_tiles_dsc.header.w = MAP_W;
+            s_tiles_dsc.header.h = MAP_H;
+            s_tiles_dsc.data = (const uint8_t *)s_tiles;
+            s_tiles_dsc.data_size = MAP_W * MAP_H * 2;
+            lv_obj_clean(s_overlay);
+            build_content();
+        }
+        lvgl_port_unlock();
+    }
+    s_tiles_busy = false;
+    vTaskDelete(NULL);
+}
+
+void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
+{
+    if (s_overlay != NULL || s_tiles_busy) {
+        return;
+    }
+    s_ac = *ac;
+    s_have_route = rt != NULL && rt->valid;
+    if (s_have_route) {
+        s_rt = *rt;
+    } else {
+        memset(&s_rt, 0, sizeof(s_rt));
+    }
+    s_view_ok = false;
+    s_generation++;
+
+    s_overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(s_overlay, 800, 480);
+    lv_obj_set_pos(s_overlay, 0, 0);
+    lv_obj_set_style_bg_color(s_overlay, COL_BG, 0);
+    lv_obj_set_style_border_width(s_overlay, 0, 0);
+    lv_obj_set_style_radius(s_overlay, 0, 0);
+    lv_obj_set_style_pad_all(s_overlay, 0, 0);
+    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_SCROLLABLE);
+
+    build_content();
+
+    s_tiles_busy = true;
+    xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
+                            (void *)(intptr_t)s_generation, 3, NULL, 0);
 }

@@ -39,3 +39,20 @@ const char *theme_names_option_string(void)
 {
     return "Dark\nLight\nBlack\nNord\nSolarized\nPurple\nForest";
 }
+
+lv_color_t alt_color(int alt_ft, bool on_ground)
+{
+    if (on_ground) {
+        return app_theme()->dim;
+    }
+    if (alt_ft < 5000) {
+        return lv_color_hex(0xffd166);
+    }
+    if (alt_ft < 15000) {
+        return lv_color_hex(0x8ac926);
+    }
+    if (alt_ft < 30000) {
+        return lv_color_hex(0x4da3ff);
+    }
+    return lv_color_hex(0xb388ff);
+}

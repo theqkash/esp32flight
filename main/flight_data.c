@@ -33,6 +33,36 @@ bool flight_is_airline(const aircraft_t *ac)
     return true;
 }
 
+bool flight_is_interesting(const aircraft_t *ac, const char *watchlist)
+{
+    if (ac->military) {
+        return true;
+    }
+    static const char *types[] = {
+        "A388", "A124", "A225", "B748", "B744", "C17", "C5M", "C5",
+        "K35R", "A400", "B52", "VC25", "CONC",
+    };
+    for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
+        if (strcmp(ac->type_icao, types[i]) == 0) {
+            return true;
+        }
+    }
+    if (watchlist != NULL && watchlist[0] != '\0') {
+        char list[96];
+        strlcpy(list, watchlist, sizeof(list));
+        char *save = NULL;
+        for (char *tok = strtok_r(list, ", ", &save); tok != NULL;
+             tok = strtok_r(NULL, ", ", &save)) {
+            size_t n = strlen(tok);
+            if (n >= 2 && (strncasecmp(ac->reg, tok, n) == 0 ||
+                           strncasecmp(ac->callsign, tok, n) == 0)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static void copy_trimmed(char *dst, size_t dst_size, const char *src)
 {
     while (*src == ' ') {
@@ -103,6 +133,9 @@ static void parse_aircraft(const cJSON *jac, aircraft_t *ac)
     }
     if ((j = cJSON_GetObjectItem(jac, "squawk")) && cJSON_IsString(j)) {
         strlcpy(ac->squawk, j->valuestring, sizeof(ac->squawk));
+    }
+    if ((j = cJSON_GetObjectItem(jac, "dbFlags")) && cJSON_IsNumber(j)) {
+        ac->military = ((int)j->valuedouble & 1) != 0;
     }
 }
 

@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "cJSON.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
@@ -22,12 +23,19 @@
 #include "routes.h"
 #include "settings.h"
 #include "geo_math.h"
+#include "http_util.h"
+#include "faflight.h"
 #include "lang.h"
+#include "mqtt_pub.h"
+#include "notify.h"
+#include "obslog.h"
+#include "trails.h"
 #include "tz.h"
 #include "ui.h"
 #include "weather.h"
 #include "web_server.h"
 #include "wifi_mgr.h"
+#include "esp_app_desc.h"
 
 static const char *TAG = "flight_task";
 
@@ -44,7 +52,7 @@ static void set_status(const char *text)
     }
 }
 
-/* Session stats (also exposed on the web panel) */
+/* Session stats (also exposed on the web panel and the stats view) */
 static struct {
     uint32_t hexes[1024];
     int      unique;
@@ -52,7 +60,61 @@ static struct {
     float    max_gs_kt;
     float    max_dist_km;
     char     max_dist_cs[CALLSIGN_LEN];
+    uint16_t hours[24];
+    struct {
+        char     code[4];
+        uint16_t n;
+    } airlines[32];
+    int      airlines_n;
 } s_stats;
+
+void flight_stats_get(app_stats_t *out)
+{
+    memset(out, 0, sizeof(*out));
+    out->unique = s_stats.unique;
+    out->max_alt_ft = s_stats.max_alt_ft;
+    out->max_gs_kt = s_stats.max_gs_kt;
+    out->max_dist_km = s_stats.max_dist_km;
+    strlcpy(out->max_dist_cs, s_stats.max_dist_cs, sizeof(out->max_dist_cs));
+    memcpy(out->hours, s_stats.hours, sizeof(out->hours));
+
+    /* top 8 airlines by count */
+    bool used[32] = { 0 };
+    for (int k = 0; k < 8; k++) {
+        int best = -1;
+        for (int i = 0; i < s_stats.airlines_n; i++) {
+            if (!used[i] && (best < 0 || s_stats.airlines[i].n > s_stats.airlines[best].n)) {
+                best = i;
+            }
+        }
+        if (best < 0) {
+            break;
+        }
+        used[best] = true;
+        strlcpy(out->top[k].code, s_stats.airlines[best].code, sizeof(out->top[k].code));
+        out->top[k].n = s_stats.airlines[best].n;
+        out->top_n = k + 1;
+    }
+}
+
+static void count_airline(const aircraft_t *ac)
+{
+    if (!flight_is_airline(ac)) {
+        return;
+    }
+    char code[4] = { ac->callsign[0], ac->callsign[1], ac->callsign[2], '\0' };
+    for (int i = 0; i < s_stats.airlines_n; i++) {
+        if (strcmp(s_stats.airlines[i].code, code) == 0) {
+            s_stats.airlines[i].n++;
+            return;
+        }
+    }
+    if (s_stats.airlines_n < 32) {
+        strlcpy(s_stats.airlines[s_stats.airlines_n].code, code, 4);
+        s_stats.airlines[s_stats.airlines_n].n = 1;
+        s_stats.airlines_n++;
+    }
+}
 
 static void stats_update(const aircraft_list_t *list)
 {
@@ -68,6 +130,27 @@ static void stats_update(const aircraft_list_t *list)
         }
         if (!known && s_stats.unique < 1024) {
             s_stats.hexes[s_stats.unique++] = h;
+
+            /* first sighting this session */
+            time_t now = time(NULL);
+            if (now > 1600000000) {
+                time_t local = now + (tz_home_known() ? tz_home_offset() : 0);
+                struct tm tm;
+                gmtime_r(&local, &tm);
+                s_stats.hours[tm.tm_hour]++;
+            }
+            count_airline(ac);
+            obslog_append(ac, NULL);
+
+            if (flight_is_interesting(ac, settings_get()->watch_regs)) {
+                char msg[128];
+                snprintf(msg, sizeof(msg), "%s (%s) %s, %d ft, %.1f km away",
+                         ac->callsign[0] ? ac->callsign : ac->hex,
+                         ac->type_icao[0] ? ac->type_icao : "?",
+                         ac->military ? "military" : "watchlist",
+                         ac->alt_baro_ft, ac->dist_nm * 1.852);
+                notify_send("esp32flight: interesting aircraft", msg);
+            }
         }
         if (ac->alt_baro_ft > s_stats.max_alt_ft) {
             s_stats.max_alt_ft = ac->alt_baro_ft;
@@ -82,6 +165,61 @@ static void stats_update(const aircraft_list_t *list)
                     sizeof(s_stats.max_dist_cs));
         }
     }
+}
+
+/* Push-notify each emergency squawk only once per session */
+static void maybe_notify_emergency(const aircraft_t *ac)
+{
+    static char notified[8][CALLSIGN_LEN];
+    static int notified_next;
+    const char *id = ac->callsign[0] ? ac->callsign : ac->hex;
+    for (int i = 0; i < 8; i++) {
+        if (strcmp(notified[i], id) == 0) {
+            return;
+        }
+    }
+    strlcpy(notified[notified_next], id, CALLSIGN_LEN);
+    notified_next = (notified_next + 1) % 8;
+
+    char msg[96];
+    snprintf(msg, sizeof(msg), "%s squawking %s, %d ft, %.1f km away",
+             id, ac->squawk, ac->alt_baro_ft, ac->dist_nm * 1.852);
+    notify_send("esp32flight: EMERGENCY", msg);
+}
+
+/* Once a day: compare the newest GitHub release against the running build */
+static void check_updates(void)
+{
+    char *buf = heap_caps_malloc(16 * 1024, MALLOC_CAP_SPIRAM);
+    if (buf == NULL) {
+        return;
+    }
+    if (http_get_to_buffer_hdr(
+            "https://api.github.com/repos/theqkash/esp32flight/releases/latest",
+            buf, 16 * 1024, NULL,
+            "Accept", "application/vnd.github+json") == ESP_OK) {
+        cJSON *root = cJSON_Parse(buf);
+        const cJSON *tag = root ? cJSON_GetObjectItem(root, "tag_name") : NULL;
+        if (cJSON_IsString(tag)) {
+            int lmaj = 0, lmin = 0, lpat = 0, cmaj = 0, cmin = 0, cpat = 0;
+            sscanf(tag->valuestring, "v%d.%d.%d", &lmaj, &lmin, &lpat);
+            sscanf(esp_app_get_description()->version, "%d.%d.%d", &cmaj, &cmin, &cpat);
+            long latest = (long)lmaj * 1000000 + lmin * 1000 + lpat;
+            long current = (long)cmaj * 1000000 + cmin * 1000 + cpat;
+            if (latest > current) {
+                ESP_LOGI(TAG, "update available: %s (running %s)",
+                         tag->valuestring, esp_app_get_description()->version);
+                if (lvgl_port_lock(1000)) {
+                    ui_set_update_available(true);
+                    lvgl_port_unlock();
+                }
+            }
+        }
+        if (root != NULL) {
+            cJSON_Delete(root);
+        }
+    }
+    free(buf);
 }
 
 /* NULL if no emergency squawk on the list */
@@ -139,6 +277,20 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
     cJSON_AddNumberToObject(js, "max_dist_km", (int)s_stats.max_dist_km);
     cJSON_AddStringToObject(js, "max_dist_callsign", s_stats.max_dist_cs);
     cJSON_AddNumberToObject(js, "uptime_min", (int)(esp_timer_get_time() / 60000000LL));
+    cJSON_AddStringToObject(js, "version", esp_app_get_description()->version);
+    cJSON *jh = cJSON_AddArrayToObject(js, "hours");
+    for (int i = 0; i < 24; i++) {
+        cJSON_AddItemToArray(jh, cJSON_CreateNumber(s_stats.hours[i]));
+    }
+    app_stats_t snap;
+    flight_stats_get(&snap);
+    cJSON *jt = cJSON_AddArrayToObject(js, "top_airlines");
+    for (int i = 0; i < snap.top_n; i++) {
+        cJSON *e = cJSON_CreateObject();
+        cJSON_AddStringToObject(e, "code", snap.top[i].code);
+        cJSON_AddNumberToObject(e, "n", snap.top[i].n);
+        cJSON_AddItemToArray(jt, e);
+    }
 
     cJSON *arr = cJSON_AddArrayToObject(root, "flights");
     for (int i = 0; i < list->count; i++) {
@@ -207,6 +359,13 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
                 cJSON_AddStringToObject(jf, "airline", name);
             }
         }
+        const char *iata = faflight_get_cached(ac->callsign);
+        if (iata != NULL && iata[0]) {
+            cJSON_AddStringToObject(jf, "flight_iata", iata);
+        }
+        if (flight_is_interesting(ac, settings_get()->watch_regs)) {
+            cJSON_AddBoolToObject(jf, "interesting", true);
+        }
         cJSON_AddItemToArray(arr, jf);
     }
 
@@ -250,6 +409,8 @@ static void flight_task(void *arg)
         tz_set_home_offset(home_off);
     }
 
+    mqtt_pub_start();
+
     char status[96];
     aircraft_list_t *list = calloc(1, sizeof(aircraft_list_t));
     if (list == NULL) {
@@ -261,8 +422,14 @@ static void flight_task(void *arg)
     int radius_nm = settings_get()->radius_nm;
     int consecutive_failures = 0;
     int64_t last_weather_ms = -1;
+    int64_t last_update_check_ms = -1;
     static weather_t wx;
     while (true) {
+        int64_t tick_ms = esp_timer_get_time() / 1000;
+        if (last_update_check_ms < 0 || tick_ms - last_update_check_ms > 24LL * 3600 * 1000) {
+            check_updates();
+            last_update_check_ms = tick_ms;
+        }
         /* Weather for the header, refreshed every 15 min */
         int64_t now_ms = esp_timer_get_time() / 1000;
         if (last_weather_ms < 0 || now_ms - last_weather_ms > 15 * 60 * 1000) {
@@ -328,9 +495,24 @@ static void flight_task(void *arg)
                 }
             }
 
+            /* Commercial flight numbers, when a FlightAware key is set */
+            if (settings_get()->fa_key[0] != '\0') {
+                for (int i = 0; i < top; i++) {
+                    if (flight_is_airline(&list->ac[i]) &&
+                        faflight_get_cached(list->ac[i].callsign) == NULL) {
+                        faflight_fetch(list->ac[i].callsign);
+                        break;  /* one lookup per cycle */
+                    }
+                }
+            }
+
             stats_update(list);
+            trails_update(list);
 
             const aircraft_t *emergency = find_emergency(list);
+            if (emergency != NULL) {
+                maybe_notify_emergency(emergency);
+            }
             if (emergency != NULL) {
                 snprintf(status, sizeof(status), LV_SYMBOL_WARNING " %s squawk %s!",
                          emergency->callsign[0] ? emergency->callsign : emergency->hex,
@@ -347,6 +529,22 @@ static void flight_task(void *arg)
                 lvgl_port_unlock();
             }
             publish_web_state(list, &wx, lat, lon, city, radius_nm);
+
+            /* Home Assistant state */
+            char mq[192];
+            if (list->count > 0) {
+                const aircraft_t *n0 = &list->ac[0];
+                snprintf(mq, sizeof(mq),
+                         "{\"nearest\":\"%s\",\"nearest_km\":%.1f,"
+                         "\"count\":%d,\"unique\":%d}",
+                         n0->callsign[0] ? n0->callsign : n0->hex,
+                         n0->dist_nm * 1.852, list->count, s_stats.unique);
+            } else {
+                snprintf(mq, sizeof(mq),
+                         "{\"nearest\":\"none\",\"nearest_km\":0,"
+                         "\"count\":0,\"unique\":%d}", s_stats.unique);
+            }
+            mqtt_pub_state(mq);
         } else {
             consecutive_failures++;
             ESP_LOGW(TAG, "fetch failed (%s), %d in a row",

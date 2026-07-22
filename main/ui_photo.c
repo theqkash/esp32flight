@@ -11,11 +11,10 @@
 
 #include "fonts.h"
 #include "http_util.h"
+#include "jpeg_dec.h"
 #include "lang.h"
 #include "lvgl_port.h"
 #include "theme.h"
-
-#include "extra/libs/sjpg/tjpgd.h"
 
 #define COL_BG     (app_theme()->bg)
 #define COL_PANEL  (app_theme()->panel)
@@ -24,80 +23,6 @@
 #define COL_DIM    (app_theme()->dim)
 
 #define PHOTO_MAX_BYTES (512 * 1024)
-
-/* LVGL's lv_sjpg can't help here: its is_jpg() only accepts strict JFIF
- * headers (planespotters serves EXIF) and it decodes line-by-line, which
- * LVGL8 can't transform. So we drive the bundled tjpgd ourselves into a
- * full RGB565 buffer. */
-typedef struct {
-    const uint8_t *data;
-    size_t         size;
-    size_t         pos;
-    uint16_t      *out;
-    int            out_w;
-} jpg_ctx_t;
-
-static size_t jpg_in(JDEC *jd, uint8_t *buf, size_t n)
-{
-    jpg_ctx_t *c = jd->device;
-    if (n > c->size - c->pos) {
-        n = c->size - c->pos;
-    }
-    if (buf != NULL) {
-        memcpy(buf, c->data + c->pos, n);
-    }
-    c->pos += n;
-    return n;
-}
-
-static int jpg_out(JDEC *jd, void *bitmap, JRECT *rect)
-{
-    jpg_ctx_t *c = jd->device;
-    const uint8_t *src = bitmap;
-    for (int y = rect->top; y <= rect->bottom; y++) {
-        uint16_t *dst = c->out + y * c->out_w + rect->left;
-        for (int x = rect->left; x <= rect->right; x++) {
-            uint8_t r = src[0], g = src[1], b = src[2];
-            src += 3;
-            *dst++ = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-        }
-    }
-    return 1;
-}
-
-/* Decode baseline JPEG to RGB565, auto-scaled (1/1..1/8) to fit the screen. */
-static uint16_t *jpg_decode(const uint8_t *data, size_t len, int *out_w, int *out_h)
-{
-    void *work = malloc(8192);
-    if (work == NULL) {
-        return NULL;
-    }
-    jpg_ctx_t ctx = { .data = data, .size = len, .pos = 0 };
-    JDEC jd;
-    if (jd_prepare(&jd, jpg_in, work, 8192, &ctx) != JDR_OK) {
-        free(work);
-        return NULL;
-    }
-    uint8_t scale = 0;
-    while (scale < 3 && ((jd.width >> scale) > 780 || (jd.height >> scale) > 400)) {
-        scale++;
-    }
-    *out_w = jd.width >> scale;
-    *out_h = jd.height >> scale;
-    ctx.out = heap_caps_malloc((size_t)*out_w * *out_h * 2, MALLOC_CAP_SPIRAM);
-    ctx.out_w = *out_w;
-    if (ctx.out == NULL) {
-        free(work);
-        return NULL;
-    }
-    JRESULT rc = jd_decomp(&jd, jpg_out, scale);
-    free(work);
-    if (rc != JDR_OK) {
-        free(ctx.out);
-        return NULL;
-    }
-    return ctx.out;
-}
 
 static lv_obj_t *s_overlay;
 static lv_obj_t *s_img;
@@ -161,7 +86,7 @@ static void photo_task(void *arg)
                 continue;
             }
             if (http_get_to_buffer(urls[i], (char *)raw, PHOTO_MAX_BYTES, &len) == ESP_OK && len > 4) {
-                pixels = jpg_decode(raw, len, &w, &h);
+                pixels = jpeg_decode_rgb565(raw, len, 700, 380, &w, &h);
             }
         }
         free(raw);

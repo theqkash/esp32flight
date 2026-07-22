@@ -82,6 +82,10 @@ void settings_load(void)
     if (nvs_get_u8(h, "lang", &lang) == ESP_OK) {
         s_settings.lang = lang;
     }
+    get_str(h, "ntfy", s_settings.ntfy_topic, sizeof(s_settings.ntfy_topic));
+    get_str(h, "mqtt", s_settings.mqtt_uri, sizeof(s_settings.mqtt_uri));
+    get_str(h, "fakey", s_settings.fa_key, sizeof(s_settings.fa_key));
+    get_str(h, "watch", s_settings.watch_regs, sizeof(s_settings.watch_regs));
     nvs_close(h);
     ESP_LOGI(TAG, "loaded: ssid=\"%s\" fixed_loc=%d radius=%d nm",
              s_settings.wifi_ssid, s_settings.use_fixed_loc, s_settings.radius_nm);
@@ -108,6 +112,10 @@ esp_err_t settings_save(void)
     nvs_set_u8(h, "hide_priv", s_settings.hide_private ? 1 : 0);
     nvs_set_u8(h, "theme", (uint8_t)s_settings.theme);
     nvs_set_u8(h, "lang", (uint8_t)s_settings.lang);
+    nvs_set_str(h, "ntfy", s_settings.ntfy_topic);
+    nvs_set_str(h, "mqtt", s_settings.mqtt_uri);
+    nvs_set_str(h, "fakey", s_settings.fa_key);
+    nvs_set_str(h, "watch", s_settings.watch_regs);
 
     err = nvs_commit(h);
     nvs_close(h);

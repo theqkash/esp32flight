@@ -31,6 +31,7 @@ typedef struct {
     float  dir_deg;                     /* bearing from query point ("dir") */
     char   category[4];                 /* ADS-B emitter category, e.g. "A3" */
     char   squawk[5];
+    bool   military;                    /* airplanes.live dbFlags bit 0 */
 } aircraft_t;
 
 typedef struct {
@@ -47,6 +48,7 @@ typedef struct {
 typedef struct {
     char      callsign[CALLSIGN_LEN];
     bool      valid;                    /* false => negative cache entry */
+    long long fetched_ms;               /* negative entries expire and retry */
     char      airline_name[NAME_LEN];
     char      airline_icao[AIRLINE_ICAO_LEN];
     airport_t origin;
@@ -62,3 +64,7 @@ typedef struct {
 /* Scheduled airline traffic: callsign like "RYR76ZJ" (3-letter ICAO airline
  * code + flight id). Registration-style callsigns count as private. */
 bool flight_is_airline(const aircraft_t *ac);
+
+/* Worth highlighting: military, notable heavy types (A380, AN-124, C-17...)
+ * or a match against the user's comma-separated watchlist. */
+bool flight_is_interesting(const aircraft_t *ac, const char *watchlist);

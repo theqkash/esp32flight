@@ -16,6 +16,9 @@ void ui_set_weather(const char *text);
 /* Emergency styling for the status line (red, larger). */
 void ui_set_status_alert(bool alert);
 
+/* Highlight the gear icon when a newer release is on GitHub. */
+void ui_set_update_available(bool available);
+
 /* Replace displayed flight data. Routes are looked up via routes_get_cached
  * and snapshotted, so later touch interactions don't race the network task. */
 void ui_update(const aircraft_list_t *list);

@@ -12,7 +12,9 @@
 #include "esp_system.h"
 #include "mdns.h"
 
+#include "cJSON.h"
 #include "lvgl_port.h"
+#include "obslog.h"
 #include "settings.h"
 #include "waveshare_rgb_lcd_port.h"
 
@@ -46,6 +48,13 @@ static const char INDEX_HTML[] =
 "button{background:#4da3ff;color:#06101f;border:0;border-radius:8px;padding:8px 14px;font-weight:600}"
 "button:disabled{opacity:.35}"
 "a{color:#4da3ff}"
+".sect{margin-top:22px;padding-top:12px;border-top:1px solid #24314f}"
+".sect h3{margin:0 0 10px;font-size:16px;color:#e8edf5}"
+".grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}"
+".grid2 label{font-size:12px;color:#8794ad;display:block;margin-bottom:2px}"
+"input,select{width:100%;box-sizing:border-box;background:#141b2d;border:1px solid #24314f;color:#e8edf5;border-radius:6px;padding:7px}"
+"#hq{width:200px;display:inline-block}"
+"tr.gold td b{color:#ffd166}"
 "</style></head><body>"
 "<h1>esp32flight</h1><div class='dim' id='hdr'>loading...</div>"
 "<div class='cards' id='cards'></div>"
@@ -58,6 +67,25 @@ static const char INDEX_HTML[] =
 "<div class='dim' style='margin-top:8px'>"
 "<a href='/screen.bmp'>screenshot</a> &middot; <a href='/api/state'>api</a> &middot; "
 "<a href='https://github.com/theqkash/esp32flight'>github.com/theqkash/esp32flight</a></div></div>"
+"<div class='sect'><h3>Device settings</h3><div class='grid2'>"
+"<div><label>Wi-Fi SSID</label><input id='c_ssid'></div>"
+"<div><label>Wi-Fi password (leave empty to keep)</label><input id='c_pass' type='password'></div>"
+"<div><label>Fixed location</label><select id='c_fixed'><option value='0'>auto (IP)</option><option value='1'>fixed</option></select></div>"
+"<div><label>Latitude</label><input id='c_lat' type='number' step='0.0001'></div>"
+"<div><label>Longitude</label><input id='c_lon' type='number' step='0.0001'></div>"
+"<div><label>Radius (nm, 5-250)</label><input id='c_radius_nm' type='number'></div>"
+"<div><label>Hide ground traffic</label><select id='c_hide_ground'><option value='0'>no</option><option value='1'>yes</option></select></div>"
+"<div><label>Airline flights only</label><select id='c_airline_only'><option value='0'>no</option><option value='1'>yes</option></select></div>"
+"<div><label>Theme</label><select id='c_theme'><option value='0'>Dark</option><option value='1'>Light</option><option value='2'>Black</option><option value='3'>Nord</option><option value='4'>Solarized</option><option value='5'>Purple</option><option value='6'>Forest</option></select></div>"
+"<div><label>Language</label><select id='c_lang'><option value='0'>English</option><option value='1'>Polski</option></select></div>"
+"<div><label>ntfy.sh topic (push alerts)</label><input id='c_ntfy_topic' placeholder='my-esp32flight'></div>"
+"<div><label>MQTT broker (Home Assistant)</label><input id='c_mqtt_uri' placeholder='mqtt://user:pass@host:1883'></div>"
+"<div><label>FlightAware AeroAPI key (IATA numbers)</label><input id='c_fa_key'></div>"
+"<div><label>Watchlist (regs/prefixes, comma-sep)</label><input id='c_watch_regs' placeholder='SP-LR,RCH'></div>"
+"</div><div style='margin-top:10px'><button onclick='saveCfg()'>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
+"<div class='sect'><h3>Spotting history</h3>"
+"<input id='hq' placeholder='filter (callsign, type...)'> <button onclick='loadHist()'>Load</button>"
+"<table><tbody id='hrows'></tbody></table></div>"
 "<script>"
 "let map,layer,homeSet=false;"
 "function ensureMap(lat,lon,rkm){if(map||typeof L==='undefined')return;"
@@ -96,11 +124,32 @@ static const char INDEX_HTML[] =
 "const em=['7700','7600','7500'].includes(f.squawk);"
 "const rt=f.route?`${f.route.from}${f.route.from_time?' '+f.route.from_time:''} \\u2192 ${f.route.to}${f.route.to_time?' '+f.route.to_time:''}<div class='dim'>${f.route.from_city||''}${f.route.from_cc?' ('+f.route.from_cc+')':''} \\u2192 ${f.route.to_city||''}${f.route.to_cc?' ('+f.route.to_cc+')':''}</div>`:'<span class=dim>?</span>';"
 "const pr=f.route?`<div class='bar'><i style='width:${f.route.progress}%'></i></div>`:'';"
-"return `<tr${em?' class=em':''}><td><b>${f.callsign}</b>${em?' \\u26A0 '+f.squawk:''}</td>"
+"return `<tr${em?' class=em':(f.interesting?' class=gold':'')}><td><b>${f.callsign}</b>${f.flight_iata?` <span class=dim>${f.flight_iata}</span>`:''}${em?' \\u26A0 '+f.squawk:''}</td>"
 "<td>${f.airline||'<span class=dim>-</span>'}</td><td>${f.type||''}</td><td>${rt}</td><td>${pr}</td>"
 "<td>${f.alt_ft?f.alt_ft.toLocaleString()+' ft':'gnd'}</td><td>${f.gs_kt} kt</td><td>${f.dist_km} km</td></tr>`;"
 "}).join('');}catch(e){}}"
-"load();setInterval(load,5000);"
+"async function loadCfg(){try{const r=await fetch('/api/config');const c=await r.json();"
+"for(const k in c){const el=document.getElementById('c_'+k);if(!el)continue;"
+"if(el.tagName==='SELECT')el.value=(+c[k])?1*c[k]:(c[k]===true?1:0);else el.value=c[k];}"
+"document.getElementById('c_theme').value=c.theme;document.getElementById('c_lang').value=c.lang;}catch(e){}}"
+"async function saveCfg(){const c={};"
+"['ssid','pass','ntfy_topic','mqtt_uri','fa_key','watch_regs'].forEach(k=>{const v=document.getElementById('c_'+k).value;if(k!=='pass'||v)c[k]=v;});"
+"c.fixed=document.getElementById('c_fixed').value==='1';"
+"c.hide_ground=document.getElementById('c_hide_ground').value==='1';"
+"c.airline_only=document.getElementById('c_airline_only').value==='1';"
+"c.lat=+document.getElementById('c_lat').value;c.lon=+document.getElementById('c_lon').value;"
+"c.radius_nm=+document.getElementById('c_radius_nm').value;"
+"c.theme=+document.getElementById('c_theme').value;c.lang=+document.getElementById('c_lang').value;"
+"const st=document.getElementById('cfgstat');st.textContent='saving...';"
+"try{const r=await fetch('/api/config',{method:'POST',body:JSON.stringify(c)});st.textContent=await r.text();}"
+"catch(e){st.textContent='device restarting...'}}"
+"async function loadHist(){const r=await fetch('/api/log');const t=await r.text();"
+"const q=document.getElementById('hq').value.toLowerCase();"
+"document.getElementById('hrows').innerHTML=t.trim().split('\n').reverse()"
+".filter(l=>l&&l.toLowerCase().includes(q)).slice(0,300).map(l=>{const p=l.split('\t');"
+"return `<tr><td class=dim>${new Date(+p[0]*1000).toLocaleString()}</td><td><b>${p[2]||''}</b></td>"
+"<td class=dim>${p[1]||''}</td><td>${p[3]||''}</td></tr>`;}).join('')||'<tr><td class=dim>empty</td></tr>';}"
+"load();loadCfg();setInterval(load,5000);"
 "async function ota(){const f=document.getElementById('fw').files[0];if(!f)return;"
 "const st=document.getElementById('otastat');st.textContent='uploading...';"
 "try{const r=await fetch('/ota',{method:'POST',body:f});"
@@ -191,6 +240,121 @@ static esp_err_t api_get(httpd_req_t *req)
     return err;
 }
 
+static esp_err_t config_get(httpd_req_t *req)
+{
+    const settings_t *c = settings_get();
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "ssid", c->wifi_ssid);
+    cJSON_AddBoolToObject(root, "fixed", c->use_fixed_loc);
+    cJSON_AddNumberToObject(root, "lat", c->lat);
+    cJSON_AddNumberToObject(root, "lon", c->lon);
+    cJSON_AddNumberToObject(root, "radius_nm", c->radius_nm);
+    cJSON_AddBoolToObject(root, "hide_ground", c->hide_ground);
+    cJSON_AddBoolToObject(root, "airline_only", c->hide_private);
+    cJSON_AddNumberToObject(root, "theme", c->theme);
+    cJSON_AddNumberToObject(root, "lang", c->lang);
+    cJSON_AddStringToObject(root, "ntfy_topic", c->ntfy_topic);
+    cJSON_AddStringToObject(root, "mqtt_uri", c->mqtt_uri);
+    cJSON_AddStringToObject(root, "fa_key", c->fa_key);
+    cJSON_AddStringToObject(root, "watch_regs", c->watch_regs);
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    httpd_resp_set_type(req, "application/json");
+    esp_err_t err = httpd_resp_send(req, json ? json : "{}", HTTPD_RESP_USE_STRLEN);
+    free(json);
+    return err;
+}
+
+static void set_str_field(const cJSON *root, const char *key, char *dst, size_t n)
+{
+    const cJSON *j = cJSON_GetObjectItem(root, key);
+    if (cJSON_IsString(j)) {
+        strlcpy(dst, j->valuestring, n);
+    }
+}
+
+static esp_err_t config_post(httpd_req_t *req)
+{
+    char body[1024];
+    int len = httpd_req_recv(req, body, sizeof(body) - 1);
+    if (len <= 0) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "empty body");
+    }
+    body[len] = '\0';
+    cJSON *root = cJSON_Parse(body);
+    if (root == NULL) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad json");
+    }
+
+    settings_t *c = settings_get();
+    set_str_field(root, "ssid", c->wifi_ssid, sizeof(c->wifi_ssid));
+    set_str_field(root, "pass", c->wifi_pass, sizeof(c->wifi_pass));
+    set_str_field(root, "ntfy_topic", c->ntfy_topic, sizeof(c->ntfy_topic));
+    set_str_field(root, "mqtt_uri", c->mqtt_uri, sizeof(c->mqtt_uri));
+    set_str_field(root, "fa_key", c->fa_key, sizeof(c->fa_key));
+    set_str_field(root, "watch_regs", c->watch_regs, sizeof(c->watch_regs));
+    const cJSON *j;
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "fixed")))) {
+        c->use_fixed_loc = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "hide_ground")))) {
+        c->hide_ground = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "airline_only")))) {
+        c->hide_private = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "lat")))) {
+        c->lat = j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "lon")))) {
+        c->lon = j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "radius_nm")))) {
+        int r = (int)j->valuedouble;
+        if (r >= 5 && r <= 250) {
+            c->radius_nm = r;
+        }
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "theme")))) {
+        c->theme = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "lang")))) {
+        c->lang = (int)j->valuedouble;
+    }
+    cJSON_Delete(root);
+
+    settings_save();
+    httpd_resp_sendstr(req, "saved - restarting");
+    ESP_LOGI(TAG, "config updated from web, restarting");
+    vTaskDelay(pdMS_TO_TICKS(400));
+    esp_restart();
+    return ESP_OK;
+}
+
+static esp_err_t log_get(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    const char *paths[2] = { OBSLOG_OLD_PATH, OBSLOG_PATH };
+    char buf[1024];
+    for (int i = 0; i < 2; i++) {
+        FILE *f = fopen(paths[i], "r");
+        if (f == NULL) {
+            continue;
+        }
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+            if (httpd_resp_send_chunk(req, buf, n) != ESP_OK) {
+                fclose(f);
+                httpd_resp_send_chunk(req, NULL, 0);
+                return ESP_OK;
+            }
+        }
+        fclose(f);
+    }
+    httpd_resp_send_chunk(req, NULL, 0);
+    return ESP_OK;
+}
+
 static esp_err_t ota_post(httpd_req_t *req)
 {
     if (!settings_get()->ota_enabled) {
@@ -277,6 +441,9 @@ void web_server_start(void)
     const httpd_uri_t uris[] = {
         { .uri = "/", .method = HTTP_GET, .handler = root_get },
         { .uri = "/api/state", .method = HTTP_GET, .handler = api_get },
+        { .uri = "/api/config", .method = HTTP_GET, .handler = config_get },
+        { .uri = "/api/config", .method = HTTP_POST, .handler = config_post },
+        { .uri = "/api/log", .method = HTTP_GET, .handler = log_get },
         { .uri = "/screen.bmp", .method = HTTP_GET, .handler = screen_get },
         { .uri = "/ota", .method = HTTP_POST, .handler = ota_post },
     };

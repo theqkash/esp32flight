@@ -6,9 +6,13 @@
 #include "cJSON.h"
 #include "esp_log.h"
 #include "airports.h"
+#include "esp_timer.h"
 #include "geo_math.h"
 #include "http_util.h"
 #include "tz.h"
+
+/* Negative entries retry after this long: route DBs fill in during the day */
+#define NEGATIVE_TTL_MS (30LL * 60 * 1000)
 
 static const char *TAG = "routes";
 
@@ -25,6 +29,11 @@ const route_info_t *routes_get_cached(const char *callsign)
     }
     for (int i = 0; i < s_used; i++) {
         if (strcmp(s_cache[i].callsign, callsign) == 0) {
+            if (!s_cache[i].valid &&
+                esp_timer_get_time() / 1000 - s_cache[i].fetched_ms > NEGATIVE_TTL_MS) {
+                s_cache[i].callsign[0] = '\0';   /* expired: allow a re-fetch */
+                return NULL;
+            }
             return &s_cache[i];
         }
     }
@@ -42,6 +51,7 @@ static route_info_t *cache_slot(const char *callsign)
     }
     memset(slot, 0, sizeof(*slot));
     strlcpy(slot->callsign, callsign, sizeof(slot->callsign));
+    slot->fetched_ms = esp_timer_get_time() / 1000;
     return slot;
 }
 

@@ -16,6 +16,11 @@ typedef struct {
     int    lang;            /* 0 = English, 1 = Polski */
     bool   ota_enabled;     /* volatile: always false after boot, armed from
                                the on-device settings screen only */
+    /* integrations, edited via the web panel (/api/config) */
+    char   ntfy_topic[48];  /* ntfy.sh topic for push notifications */
+    char   mqtt_uri[96];    /* e.g. mqtt://user:pass@192.168.1.5:1883 */
+    char   fa_key[48];      /* FlightAware AeroAPI key (IATA flight numbers) */
+    char   watch_regs[96];  /* comma-separated watchlist (regs/callsign prefixes) */
 } settings_t;
 
 /* Load from NVS (menuconfig values as first-boot defaults). Call once at
