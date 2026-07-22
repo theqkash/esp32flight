@@ -1662,7 +1662,8 @@ static void render_detail(void)
     lv_label_set_text(s_stat_vals[4], buf);
     const char *cc = reg_country(ac->reg);
     if (ac->reg[0] && cc != NULL) {
-        snprintf(buf, sizeof(buf), "%s \xC2\xB7 %s", ac->reg, cc);
+        /* ASCII only: this tile uses the built-in Montserrat font */
+        snprintf(buf, sizeof(buf), "%s (%s)", ac->reg, cc);
         lv_label_set_text(s_stat_vals[5], buf);
     } else {
         lv_label_set_text(s_stat_vals[5], ac->reg[0] ? ac->reg : "-");
