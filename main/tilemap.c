@@ -67,8 +67,11 @@ static bool blit_tile(esp_http_client_handle_t client, tile_sink_t *sink,
              "https://basemaps.cartocdn.com/dark_all/%d/%d/%d.png", z, tx, ty);
     sink->len = 0;
     esp_http_client_set_url(client, url);
-    if (esp_http_client_perform(client) != ESP_OK ||
-        esp_http_client_get_status_code(client) != 200 || sink->len < 8) {
+    esp_err_t err = esp_http_client_perform(client);
+    int status = esp_http_client_get_status_code(client);
+    if (err != ESP_OK || status != 200 || sink->len < 8) {
+        ESP_LOGW(TAG, "tile %d/%d/%d: %s http=%d len=%u",
+                 z, tx, ty, esp_err_to_name(err), status, (unsigned)sink->len);
         return false;
     }
     const uint8_t *fetch_buf = sink->buf;
@@ -197,10 +200,10 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
                 failed[failed_n].ty = ty;
                 failed_n++;
             }
-            /* two straight failures with zero successes: assume offline */
-            if (total >= 2 && ok == 0) {
+            /* many straight failures with zero successes: likely offline,
+             * stop the first pass but still give the retry pass a chance */
+            if (total >= 5 && ok == 0) {
                 offline = true;
-                failed_n = 0;
                 break;
             }
         }

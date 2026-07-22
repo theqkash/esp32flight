@@ -15,6 +15,9 @@
 #include "tilemap.h"
 #include "trails.h"
 
+#include "esp_heap_caps.h"
+#include "extra/libs/png/lodepng.h"
+
 #include "theme.h"
 
 LV_IMG_DECLARE(img_plane);
@@ -61,6 +64,11 @@ static void close_cb(lv_event_t *e)
     }
 }
 
+/* Decode a bundled PNG once into a persistent RGB565 buffer. Draw-time PNG
+ * decoding needs a 1.3 MB contiguous block per frame; under memory pressure
+ * LVGL silently falls back to its built-in decoder, which renders the raw
+ * file bytes as pixels (colorful noise). Pre-decoding removes that failure
+ * mode entirely. */
 static const lv_img_dsc_t *load_png(const char *path, uint8_t **data, lv_img_dsc_t *dsc)
 {
     if (*data != NULL) {
@@ -77,24 +85,43 @@ static const lv_img_dsc_t *load_png(const char *path, uint8_t **data, lv_img_dsc
         fclose(f);
         return NULL;
     }
-    *data = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
-    if (*data == NULL) {
+    uint8_t *raw = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+    if (raw == NULL) {
         fclose(f);
         return NULL;
     }
-    if (fread(*data, 1, size, f) != (size_t)size) {
-        free(*data);
-        *data = NULL;
+    if (fread(raw, 1, size, f) != (size_t)size) {
+        free(raw);
         fclose(f);
         return NULL;
     }
     fclose(f);
+
+    unsigned char *rgba = NULL;
+    unsigned w = 0, h = 0;
+    unsigned rc = lodepng_decode32(&rgba, &w, &h, raw, size);
+    free(raw);
+    if (rc != 0 || rgba == NULL) {
+        return NULL;
+    }
+    uint16_t *px = heap_caps_malloc((size_t)w * h * 2, MALLOC_CAP_SPIRAM);
+    if (px == NULL) {
+        free(rgba);
+        return NULL;
+    }
+    for (size_t i = 0; i < (size_t)w * h; i++) {
+        const unsigned char *p = rgba + i * 4;
+        px[i] = ((p[0] & 0xF8) << 8) | ((p[1] & 0xFC) << 3) | (p[2] >> 3);
+    }
+    free(rgba);
+
+    *data = (uint8_t *)px;
     dsc->header.always_zero = 0;
-    /* The PNG decoder outputs true-color+alpha; declaring RAW here makes the
-     * renderer misread the decoded buffer (2 vs 3 bytes/px) and garble colors. */
-    dsc->header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+    dsc->header.cf = LV_IMG_CF_TRUE_COLOR;
+    dsc->header.w = w;
+    dsc->header.h = h;
     dsc->data = *data;
-    dsc->data_size = size;
+    dsc->data_size = (size_t)w * h * 2;
     return dsc;
 }
 

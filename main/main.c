@@ -9,6 +9,7 @@
 #include "logos.h"
 #include "settings.h"
 #include "ui.h"
+#include "ui_map.h"
 #include "web_server.h"
 #include "wifi_mgr.h"
 
@@ -32,6 +33,9 @@ void app_main(void)
 
     logos_init();
     airports_init();
+    /* pre-decode both world maps so map opens never decode PNGs at draw time */
+    ui_map_get_image();
+    ui_map_get_image_small();
 
     if (lvgl_port_lock(-1)) {
         ui_init();
