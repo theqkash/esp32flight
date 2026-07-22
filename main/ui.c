@@ -1672,13 +1672,16 @@ static void render_detail(void)
     /* spotter line: where to look + flyover prediction */
     char look[128] = "";
     if (ac->has_pos && !ac->on_ground && ac->dist_nm >= 0 && s_home_ok) {
-        int n = snprintf(look, sizeof(look), L()->look_fmt,
+        double t_s, cpa_km;
+        bool cpa_ok = geo_cpa(s_home_lat, s_home_lon, ac->lat, ac->lon,
+                              ac->track_deg, ac->gs_kts, &t_s, &cpa_km) &&
+                      cpa_km < 25.0 && t_s < 30 * 60;
+        /* the compact variant leaves room for the flyover prediction */
+        int n = snprintf(look, sizeof(look),
+                         cpa_ok ? L()->look_short_fmt : L()->look_fmt,
                          lang_compass((int)ac->dir_deg),
                          (int)geo_elevation_deg(ac->dist_nm * 1.852, ac->alt_baro_ft));
-        double t_s, cpa_km;
-        if (geo_cpa(s_home_lat, s_home_lon, ac->lat, ac->lon,
-                    ac->track_deg, ac->gs_kts, &t_s, &cpa_km) &&
-            cpa_km < 25.0 && t_s < 30 * 60 && n > 0 && (size_t)n < sizeof(look) - 4) {
+        if (cpa_ok && n > 0 && (size_t)n < sizeof(look) - 8) {
             snprintf(look + n, sizeof(look) - n, "  \xC2\xB7  ");
             n = strlen(look);
             snprintf(look + n, sizeof(look) - n, L()->cpa_fmt, (int)(t_s / 60), cpa_km);

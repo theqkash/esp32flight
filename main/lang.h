@@ -29,6 +29,7 @@ typedef struct {
     const char *ota_hint;
     /* spotter */
     const char *look_fmt;        /* compass, elevation */
+    const char *look_short_fmt;  /* compact variant when CPA is shown */
     const char *cpa_fmt;         /* minutes, km */
     /* settings tabs + new options */
     const char *tab_net, *tab_place, *tab_filters, *tab_integr, *tab_system;
