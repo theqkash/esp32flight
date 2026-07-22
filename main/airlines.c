@@ -9,7 +9,7 @@
 
 static const char *TAG = "airlines";
 
-#define AIRLINE_CACHE_SIZE 48
+#define AIRLINE_CACHE_SIZE 96
 #define AIRLINE_NAME_LEN   48
 
 typedef struct {

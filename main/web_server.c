@@ -487,6 +487,8 @@ static esp_err_t config_post(httpd_req_t *req)
     }
     cJSON_Delete(root);
 
+    ESP_LOGI(TAG, "config POST: lang=%d theme=%d fixed=%d radius=%d",
+             c->lang, c->theme, c->use_fixed_loc, c->radius_nm);
     settings_save();
     httpd_resp_sendstr(req, "saved - restarting");
     ESP_LOGI(TAG, "config updated from web, restarting");

@@ -44,9 +44,9 @@
 static const char *TAG = "flight_task";
 
 /* New adsbdb lookups per poll cycle - keep the free service happy. */
-#define MAX_ROUTE_LOOKUPS_PER_CYCLE 4
+#define MAX_ROUTE_LOOKUPS_PER_CYCLE 8
 /* Only resolve routes for the closest N aircraft. */
-#define ROUTE_LOOKUP_TOP_N 10
+#define ROUTE_LOOKUP_TOP_N MAX_AIRCRAFT
 
 static void set_status(const char *text)
 {
@@ -568,11 +568,12 @@ static void flight_task(void *arg)
                 if (cs[0] != '\0' && routes_get_cached(cs) == NULL) {
                     routes_fetch(cs, list->ac[i].lat, list->ac[i].lon, list->ac[i].has_pos);
                     lookups++;
-                    vTaskDelay(pdMS_TO_TICKS(250));
+                    vTaskDelay(pdMS_TO_TICKS(200));
                 }
             }
 
             /* Airline full names for prefixes the route DBs didn't name */
+            int alookups = 0;
             for (int i = 0; i < top; i++) {
                 const char *cs = list->ac[i].callsign;
                 if (!flight_is_airline(&list->ac[i])) {
@@ -585,7 +586,9 @@ static void flight_task(void *arg)
                 char code[4] = { cs[0], cs[1], cs[2], '\0' };
                 if (airlines_get_cached(code) == NULL) {
                     airlines_fetch(code);
-                    break;      /* one lookup per cycle */
+                    if (++alookups >= 4) {
+                        break;
+                    }
                 }
             }
 

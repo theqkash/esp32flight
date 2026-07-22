@@ -111,6 +111,8 @@ static bool s_amb_view_ok;
 static volatile bool s_amb_busy;
 static char s_amb_key[48];
 static double s_amb_bbox[4];
+static float s_amb_scale = 1.0f;   /* upscale so the radius circle fills the height */
+static int s_amb_px, s_amb_py;     /* scale pivot: home position in map pixels */
 static char s_weather_txt[96];
 static bool s_bl_off;
 
@@ -169,6 +171,7 @@ static lv_obj_t *s_airline_label;
 static lv_obj_t *s_type_label;
 static lv_obj_t *s_orig_code, *s_orig_city;
 static lv_obj_t *s_orig_flag, *s_dest_flag, *s_reg_flag;
+static lv_obj_t *s_orig_time, *s_dest_time, *s_extra_label;
 static lv_obj_t *s_dest_code, *s_dest_city;
 static lv_obj_t *s_progress_bar;
 static lv_obj_t *s_progress_label;
@@ -1062,6 +1065,24 @@ static void amb_tiles_task(void *arg)
         if (ok && s_amb != NULL) {
             s_amb_view = view;
             s_amb_view_ok = true;
+            /* Integer tile zooms rarely land exactly; stretch the rendered
+             * map so the observation circle spans the full screen height. */
+            int hx, hy, ex, ey;
+            tilemap_project(&view, s_home_lat, s_home_lon, &hx, &hy);
+            double rkm = settings_get()->radius_nm * 1.852;
+            tilemap_project(&view, s_home_lat + rkm / 111.0, s_home_lon, &ex, &ey);
+            float r = (float)(hy - ey);
+            s_amb_scale = 1.0f;
+            s_amb_px = hx;
+            s_amb_py = hy;
+            if (r > 20.0f && r < 240.0f) {
+                s_amb_scale = 240.0f / r;
+                if (s_amb_scale > 2.5f) {
+                    s_amb_scale = 2.5f;
+                }
+            }
+            lv_img_set_pivot(s_amb_img, hx, hy);
+            lv_img_set_zoom(s_amb_img, (int)(256.0f * s_amb_scale + 0.5f));
             s_amb_tiles_dsc.header.always_zero = 0;
             s_amb_tiles_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
             s_amb_tiles_dsc.header.w = 800;
@@ -1082,6 +1103,10 @@ static void amb_proj(double lat, double lon, lv_coord_t *x, lv_coord_t *y)
     if (s_amb_view_ok) {
         int xx, yy;
         tilemap_project(&s_amb_view, lat, lon, &xx, &yy);
+        if (s_amb_scale != 1.0f) {
+            xx = s_amb_px + (int)((xx - s_amb_px) * s_amb_scale);
+            yy = s_amb_py + (int)((yy - s_amb_py) * s_amb_scale);
+        }
         *x = (lv_coord_t)xx;
         *y = (lv_coord_t)yy;
         return;
@@ -1165,6 +1190,7 @@ static void amb_close(void)
         s_amb = NULL;
         s_amb_view_ok = false;
         s_amb_key[0] = '\0';
+        s_amb_scale = 1.0f;
     }
 }
 
@@ -1481,10 +1507,14 @@ static void build_detail(lv_obj_t *scr)
     lv_label_set_text(arrow, LV_SYMBOL_RIGHT);
     lv_obj_set_pos(arrow, 222, 122);
 
+    s_orig_time = make_label(s_detail_content, &font_pl_16, COL_DIM);
+    lv_obj_add_flag(s_orig_time, LV_OBJ_FLAG_HIDDEN);
+
     s_dest_code = make_label(s_detail_content, &lv_font_montserrat_32, COL_TEXT);
-    lv_obj_set_style_text_align(s_dest_code, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_pos(s_dest_code, 320, 116);
-    lv_obj_set_width(s_dest_code, 138);
+
+    s_dest_time = make_label(s_detail_content, &font_pl_16, COL_DIM);
+    lv_obj_add_flag(s_dest_time, LV_OBJ_FLAG_HIDDEN);
     s_dest_city = make_label(s_detail_content, &font_pl_14, COL_DIM);
     lv_obj_set_style_text_align(s_dest_city, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_pos(s_dest_city, 258, 152);
@@ -1516,6 +1546,11 @@ static void build_detail(lv_obj_t *scr)
     lv_obj_set_style_border_width(grid, 0, 0);
     lv_obj_set_style_pad_all(grid, 0, 0);
     lv_obj_clear_flag(grid, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_extra_label = make_label(s_detail_content, &font_pl_14, COL_DIM);
+    lv_obj_set_pos(s_extra_label, 0, 378);
+    lv_obj_set_width(s_extra_label, 458);
+    lv_label_set_long_mode(s_extra_label, LV_LABEL_LONG_DOT);
 
     make_stat(grid, 0, 0, L()->st_alt, &s_stat_vals[0]);
     make_stat(grid, 1, 0, L()->st_speed, &s_stat_vals[1]);
@@ -1656,15 +1691,16 @@ static void render_detail(void)
             lv_obj_add_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_pos(s_orig_city, 0, 152);
         }
-        lv_label_set_text_fmt(s_orig_city, "%s%s%s%s%s",
+        lv_label_set_text_fmt(s_orig_city, "%s%s%s%s",
                               rt->origin.city,
                               rt->origin.country[0] ? " (" : "",
                               rt->origin.country,
-                              rt->origin.country[0] ? ")" : "",
-                              lt[0] ? "" : "");
+                              rt->origin.country[0] ? ")" : "");
+        lv_label_set_text(s_orig_time, lt);
         if (lt[0]) {
-            lv_label_ins_text(s_orig_city, LV_LABEL_POS_LAST, "  \xC2\xB7  ");
-            lv_label_ins_text(s_orig_city, LV_LABEL_POS_LAST, lt);
+            lv_obj_clear_flag(s_orig_time, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_orig_time, LV_OBJ_FLAG_HIDDEN);
         }
         lv_label_set_text(s_dest_code,
                           rt->destination.iata[0] ? rt->destination.iata : rt->destination.icao);
@@ -1683,9 +1719,11 @@ static void render_detail(void)
                               rt->destination.country[0] ? " (" : "",
                               rt->destination.country,
                               rt->destination.country[0] ? ")" : "");
+        lv_label_set_text(s_dest_time, lt);
         if (lt[0]) {
-            lv_label_ins_text(s_dest_city, LV_LABEL_POS_LAST, "  \xC2\xB7  ");
-            lv_label_ins_text(s_dest_city, LV_LABEL_POS_LAST, lt);
+            lv_obj_clear_flag(s_dest_time, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_dest_time, LV_OBJ_FLAG_HIDDEN);
         }
 
         double prog = geo_progress(rt->origin.lat, rt->origin.lon,
@@ -1707,9 +1745,18 @@ static void render_detail(void)
         lv_label_set_text(s_dest_city, "");
         lv_obj_add_flag(s_orig_flag, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(s_dest_flag, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_orig_time, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_dest_time, LV_OBJ_FLAG_HIDDEN);
         lv_bar_set_value(s_progress_bar, 0, LV_ANIM_OFF);
         lv_label_set_text(s_progress_label, "");
     }
+
+    /* Right-align the destination code and snap the local times to the
+     * airport codes (the code labels are content-sized). */
+    lv_obj_update_layout(s_detail_content);
+    lv_obj_set_x(s_dest_code, 458 - lv_obj_get_width(s_dest_code));
+    lv_obj_align_to(s_orig_time, s_orig_code, LV_ALIGN_OUT_RIGHT_BOTTOM, 10, -6);
+    lv_obj_align_to(s_dest_time, s_dest_code, LV_ALIGN_OUT_LEFT_BOTTOM, -10, -6);
 
     if (ac->on_ground) {
         lv_label_set_text(s_stat_vals[0], L()->ground);
@@ -1725,6 +1772,35 @@ static void render_detail(void)
     lv_label_set_text(s_stat_vals[3], buf);
     snprintf(buf, sizeof(buf), "%.0f\xC2\xB0", (double)ac->track_deg);
     lv_label_set_text(s_stat_vals[4], buf);
+    char extra[128];
+    size_t el = 0;
+    extra[0] = '\0';
+    if (ac->squawk[0]) {
+        el += snprintf(extra + el, sizeof(extra) - el, "Squawk %s", ac->squawk);
+    }
+    if (ac->category[0]) {
+        el += snprintf(extra + el, sizeof(extra) - el, "%s%s %s",
+                       el ? "   \xC2\xB7   " : "", L()->cat_word, ac->category);
+    }
+    if (rt != NULL && rt->valid && !ac->on_ground && ac->gs_kts > 80 &&
+        rt->destination.tz_known) {
+        time_t now = time(NULL);
+        if (now > 1600000000) {
+            double rem_km = geo_haversine_km(ac->lat, ac->lon,
+                                             rt->destination.lat, rt->destination.lon);
+            time_t arr = now + (time_t)(rem_km / (ac->gs_kts * 1.852) * 3600.0)
+                             + rt->destination.tz_offset_s;
+            struct tm tm;
+            gmtime_r(&arr, &tm);
+            char hh[8], af[64];
+            snprintf(hh, sizeof(hh), "%02d:%02d", tm.tm_hour, tm.tm_min);
+            snprintf(af, sizeof(af), L()->arr_fmt, hh);
+            el += snprintf(extra + el, sizeof(extra) - el, "%s%s",
+                           el ? "   \xC2\xB7   " : "", af);
+        }
+    }
+    lv_label_set_text(s_extra_label, extra);
+
     const char *cc = reg_country(ac->reg);
     const lv_img_dsc_t *rfl = ac->reg[0] && cc != NULL ? flags_get(cc) : NULL;
     if (rfl != NULL) {

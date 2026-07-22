@@ -1,4 +1,5 @@
 #include "routes.h"
+#include "esp_heap_caps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,15 +17,25 @@
 
 static const char *TAG = "routes";
 
-#define ROUTE_CACHE_SIZE 48
+#define ROUTE_CACHE_SIZE 160
 
-static route_info_t s_cache[ROUTE_CACHE_SIZE];
+/* Large enough to hold a busy area without eviction churn; lives in PSRAM. */
+static route_info_t *s_cache;
 static int s_used;
 static int s_next_evict;
 
+static bool cache_ready(void)
+{
+    if (s_cache == NULL) {
+        s_cache = heap_caps_calloc(ROUTE_CACHE_SIZE, sizeof(route_info_t),
+                                   MALLOC_CAP_SPIRAM);
+    }
+    return s_cache != NULL;
+}
+
 const route_info_t *routes_get_cached(const char *callsign)
 {
-    if (callsign == NULL || callsign[0] == '\0') {
+    if (callsign == NULL || callsign[0] == '\0' || !cache_ready()) {
         return NULL;
     }
     for (int i = 0; i < s_used; i++) {
@@ -42,6 +53,9 @@ const route_info_t *routes_get_cached(const char *callsign)
 
 static route_info_t *cache_slot(const char *callsign)
 {
+    if (!cache_ready()) {
+        return NULL;
+    }
     route_info_t *slot;
     if (s_used < ROUTE_CACHE_SIZE) {
         slot = &s_cache[s_used++];
@@ -278,6 +292,10 @@ const route_info_t *routes_fetch(const char *callsign,
     esp_err_t err = http_get_to_buffer(url, buf, 8192, NULL);
 
     route_info_t *slot = cache_slot(callsign);   /* negative by default */
+    if (slot == NULL) {
+        free(buf);
+        return NULL;
+    }
 
     if (err == ESP_OK) {
         cJSON *root = cJSON_Parse(buf);

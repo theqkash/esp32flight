@@ -1,4 +1,5 @@
 #include "ui_settings.h"
+#include "esp_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -270,6 +271,8 @@ static void save_cb(lv_event_t *e)
     strlcpy(cfg->web_pass, lv_textarea_get_text(s_ta_webpass), sizeof(cfg->web_pass));
     cfg->theme = lv_dropdown_get_selected(s_dd_theme);
     cfg->lang = lv_dropdown_get_selected(s_dd_lang);
+    ESP_LOGI("settings", "device save: lang=%d theme=%d fixed=%d",
+             cfg->lang, cfg->theme, cfg->use_fixed_loc);
     settings_save();
 
     lv_obj_t *msg = lv_label_create(s_overlay);

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define TRAIL_SLOTS 64
+#define TRAIL_SLOTS 96
 
 typedef struct {
     char     hex[7];

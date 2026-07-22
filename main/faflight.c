@@ -10,7 +10,7 @@
 
 static const char *TAG = "faflight";
 
-#define FA_CACHE_SIZE 48
+#define FA_CACHE_SIZE 96
 #define FA_BUF_SIZE   (48 * 1024)
 
 typedef struct {
