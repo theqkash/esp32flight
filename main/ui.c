@@ -33,6 +33,8 @@
 
 #include "theme.h"
 
+LV_IMG_DECLARE(img_plane);
+
 #define COL_BG        (app_theme()->bg)
 #define COL_PANEL     (app_theme()->panel)
 #define COL_ROW       (app_theme()->row)
@@ -534,6 +536,17 @@ static void emb_tiles_want(const aircraft_t *ac, const route_info_t *rt)
     xTaskCreatePinnedToCore(emb_tiles_task, "emb_tiles", 12288, NULL, 3, NULL, 0);
 }
 
+/* Rotatable plane sprite, tinted by altitude at render time */
+static lv_obj_t *plane_img(lv_obj_t *parent)
+{
+    lv_obj_t *im = lv_img_create(parent);
+    lv_img_set_src(im, &img_plane);
+    lv_obj_set_style_img_recolor_opa(im, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(im, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(im, LV_OBJ_FLAG_HIDDEN);
+    return im;
+}
+
 static lv_obj_t *emb_marker(lv_obj_t *parent, int d, lv_color_t color)
 {
     lv_obj_t *m = lv_obj_create(parent);
@@ -577,7 +590,7 @@ static void build_map_panel(lv_obj_t *scr)
 
     s_emb_orig = emb_marker(s_map_panel, 10, lv_color_hex(0x39d98a));
     s_emb_dest = emb_marker(s_map_panel, 10, lv_color_hex(0xff6b6b));
-    s_emb_plane = emb_marker(s_map_panel, 12, lv_color_hex(0xffd166));
+    s_emb_plane = plane_img(s_map_panel);
 
     /* tap the map to open the full-screen route map */
     lv_obj_t *tap = lv_obj_create(s_map_panel);
@@ -692,9 +705,10 @@ static void render_map_panel(void)
 
     if (ac->has_pos) {
         project_emb(ac->lat, ac->lon, &x, &y);
-        lv_obj_set_pos(s_emb_plane, x - 6, y - 6);
-        lv_obj_set_style_bg_color(s_emb_plane,
-                                  alt_color(ac->alt_baro_ft, ac->on_ground), 0);
+        lv_obj_set_pos(s_emb_plane, x - 14, y - 14);
+        lv_img_set_angle(s_emb_plane, (int)(ac->track_deg * 10));
+        lv_obj_set_style_img_recolor(s_emb_plane,
+                                     alt_color(ac->alt_baro_ft, ac->on_ground), 0);
         lv_obj_clear_flag(s_emb_plane, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(s_emb_plane, LV_OBJ_FLAG_HIDDEN);
@@ -777,7 +791,7 @@ static void build_radar_panel(lv_obj_t *scr)
     lv_obj_clear_flag(home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     for (int i = 0; i < MAX_SHOWN; i++) {
-        s_radar_dots[i] = emb_marker(s_radar_panel, 12, COL_TEXT);
+        s_radar_dots[i] = plane_img(s_radar_panel);
     }
 
     s_radar_info = make_label(s_radar_panel, &font_pl_14, COL_TEXT);
@@ -810,12 +824,11 @@ static void render_radar_panel(void)
         float rad = ac->dir_deg * (float)M_PI / 180.0f;
         int x = RADAR_CX + (int)(sinf(rad) * frac * RADAR_R);
         int y = RADAR_CY - (int)(cosf(rad) * frac * RADAR_R);
-        lv_obj_set_pos(s_radar_dots[i], x - 6, y - 6);
-        lv_obj_set_style_bg_color(s_radar_dots[i],
-                                  alt_color(ac->alt_baro_ft, ac->on_ground), 0);
-        lv_obj_set_style_border_width(s_radar_dots[i], i == s_selected ? 3 : 1, 0);
-        lv_obj_set_style_border_color(s_radar_dots[i],
-                                      i == s_selected ? COL_TEXT : COL_BG, 0);
+        lv_obj_set_pos(s_radar_dots[i], x - 14, y - 14);
+        lv_img_set_angle(s_radar_dots[i], (int)(ac->track_deg * 10));
+        lv_img_set_zoom(s_radar_dots[i], i == s_selected ? 384 : 232);
+        lv_obj_set_style_img_recolor(s_radar_dots[i],
+                                     alt_color(ac->alt_baro_ft, ac->on_ground), 0);
         lv_obj_clear_flag(s_radar_dots[i], LV_OBJ_FLAG_HIDDEN);
 
         if (i == s_selected) {

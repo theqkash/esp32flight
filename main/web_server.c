@@ -145,7 +145,7 @@ static const char INDEX_HTML[] =
 "catch(e){st.textContent='device restarting...'}}"
 "async function loadHist(){const r=await fetch('/api/log');const t=await r.text();"
 "const q=document.getElementById('hq').value.toLowerCase();"
-"document.getElementById('hrows').innerHTML=t.trim().split('\n').reverse()"
+"document.getElementById('hrows').innerHTML=t.trim().split('\\n').reverse()"
 ".filter(l=>l&&l.toLowerCase().includes(q)).slice(0,300).map(l=>{const p=l.split('\t');"
 "return `<tr><td class=dim>${new Date(+p[0]*1000).toLocaleString()}</td><td><b>${p[2]||''}</b></td>"
 "<td class=dim>${p[1]||''}</td><td>${p[3]||''}</td></tr>`;}).join('')||'<tr><td class=dim>empty</td></tr>';}"

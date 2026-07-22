@@ -17,6 +17,8 @@
 
 #include "theme.h"
 
+LV_IMG_DECLARE(img_plane);
+
 #define COL_BG     (app_theme()->bg)
 #define COL_PANEL  (app_theme()->panel)
 #define COL_ACCENT (app_theme()->accent)
@@ -244,7 +246,12 @@ static void build_content(void)
 
     if (ac->has_pos) {
         project(ac->lat, ac->lon, &x, &y);
-        marker(s_overlay, x, y, 14, alt_color(ac->alt_baro_ft, ac->on_ground));
+        lv_obj_t *pl = lv_img_create(s_overlay);
+        lv_img_set_src(pl, &img_plane);
+        lv_obj_set_style_img_recolor(pl, alt_color(ac->alt_baro_ft, ac->on_ground), 0);
+        lv_obj_set_style_img_recolor_opa(pl, LV_OPA_COVER, 0);
+        lv_img_set_angle(pl, (int)(ac->track_deg * 10));
+        lv_obj_set_pos(pl, x - 14, y - 14);
         if (!have_route) {
             code_label(s_overlay, x + 8, y - 24,
                        ac->callsign[0] ? ac->callsign : ac->hex, COL_PLANE);
@@ -329,13 +336,20 @@ static void map_tiles_task(void *arg)
         }
         lvgl_port_unlock();
     }
-    s_tiles_busy = false;
+    /* if the overlay was reopened for another flight while we rendered,
+     * render again for the current one */
+    if (s_overlay != NULL && gen != s_generation) {
+        xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
+                                (void *)(intptr_t)s_generation, 3, NULL, 0);
+    } else {
+        s_tiles_busy = false;
+    }
     vTaskDelete(NULL);
 }
 
 void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
 {
-    if (s_overlay != NULL || s_tiles_busy) {
+    if (s_overlay != NULL) {
         return;
     }
     s_ac = *ac;
@@ -359,7 +373,10 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
 
     build_content();
 
-    s_tiles_busy = true;
-    xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
-                            (void *)(intptr_t)s_generation, 3, NULL, 0);
+    /* a still-running worker will respawn itself for this generation */
+    if (!s_tiles_busy) {
+        s_tiles_busy = true;
+        xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 12288,
+                                (void *)(intptr_t)s_generation, 3, NULL, 0);
+    }
 }

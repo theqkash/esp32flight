@@ -15,6 +15,7 @@ idf_component_register(
         "faflight.c"
         "flight_task.c"
         "geocode.c"
+        "img_plane.c"
         "jpeg_dec.c"
         "lang.c"
         "mqtt_pub.c"

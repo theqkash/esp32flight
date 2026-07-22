@@ -160,7 +160,7 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
         .url = "https://basemaps.cartocdn.com/dark_all/0/0/0.png",
         .event_handler = tile_http_cb,
         .user_data = &sink,
-        .timeout_ms = 10000,
+        .timeout_ms = 5000,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .keep_alive_enable = true,
         .user_agent = "esp32flight/1.0",
@@ -177,7 +177,10 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
     int ty1 = (int)floor((py0 + dst_h - 1) / TILE_PX);
     int tiles_max = 1 << z;
     int ok = 0, total = 0;
-    for (int ty = ty0; ty <= ty1; ty++) {
+    bool offline = false;
+    struct { int16_t tx, ty; } failed[32];
+    int failed_n = 0;
+    for (int ty = ty0; ty <= ty1 && !offline; ty++) {
         if (ty < 0 || ty >= tiles_max) {
             continue;
         }
@@ -189,7 +192,26 @@ bool tilemap_render(uint16_t *dst, int dst_w, int dst_h,
             if (blit_tile(client, &sink, dst, dst_w, dst_h, z, tx, ty,
                           (int)(tx * TILE_PX - px0), (int)(ty * TILE_PX - py0))) {
                 ok++;
+            } else if (failed_n < 32) {
+                failed[failed_n].tx = tx;
+                failed[failed_n].ty = ty;
+                failed_n++;
             }
+            /* two straight failures with zero successes: assume offline */
+            if (total >= 2 && ok == 0) {
+                offline = true;
+                failed_n = 0;
+                break;
+            }
+        }
+    }
+    /* one retry pass: early requests occasionally fail while the TLS
+     * connection warms up */
+    for (int i = 0; i < failed_n; i++) {
+        if (blit_tile(client, &sink, dst, dst_w, dst_h, z, failed[i].tx, failed[i].ty,
+                      (int)(failed[i].tx * TILE_PX - px0),
+                      (int)(failed[i].ty * TILE_PX - py0))) {
+            ok++;
         }
     }
     esp_http_client_cleanup(client);
