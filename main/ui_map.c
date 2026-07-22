@@ -55,6 +55,11 @@ static bool          s_view_ok;
 static volatile bool s_tiles_busy;
 static int           s_generation;   /* bumped each open/close */
 
+/* manual pan/zoom state (reset on each open) */
+static double s_zoom_mul = 1.0;
+static double s_pan_dlat, s_pan_dlon;
+static double s_half_lat, s_half_lon;   /* current view half-spans */
+
 static void close_cb(lv_event_t *e)
 {
     if (s_overlay != NULL) {
@@ -184,6 +189,53 @@ static void code_label(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_pos(l, x, y);
 }
 
+static void map_tiles_task(void *arg);
+
+static void spawn_tiles(void)
+{
+    if (!s_tiles_busy) {
+        s_tiles_busy = true;
+        if (xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 10240,
+                                    (void *)(intptr_t)s_generation, 3, NULL, 0) != pdPASS) {
+            s_tiles_busy = false;
+        }
+    }
+}
+
+static void zoom_cb(lv_event_t *e)
+{
+    double mul = (double)(intptr_t)lv_event_get_user_data(e) > 0 ? 0.5 : 2.0;
+    double next = s_zoom_mul * mul;
+    if (next < 0.05) next = 0.05;
+    if (next > 8.0) next = 8.0;
+    s_zoom_mul = next;
+    spawn_tiles();
+}
+
+static void pan_gesture_cb(lv_event_t *e)
+{
+    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+    double step_lat = s_half_lat > 0 ? s_half_lat * 0.6 : 1.0;
+    double step_lon = s_half_lon > 0 ? s_half_lon * 0.6 : 2.0;
+    switch (dir) {
+    case LV_DIR_LEFT:
+        s_pan_dlon += step_lon;
+        break;
+    case LV_DIR_RIGHT:
+        s_pan_dlon -= step_lon;
+        break;
+    case LV_DIR_TOP:
+        s_pan_dlat -= step_lat;
+        break;
+    case LV_DIR_BOTTOM:
+        s_pan_dlat += step_lat;
+        break;
+    default:
+        return;
+    }
+    spawn_tiles();
+}
+
 static void build_content(void)
 {
     const aircraft_t *ac = &s_ac;
@@ -215,6 +267,20 @@ static void build_content(void)
     lv_obj_t *xl = lv_label_create(btn_close);
     lv_label_set_text(xl, LV_SYMBOL_CLOSE);
     lv_obj_center(xl);
+
+    /* manual zoom */
+    static const char *zsym[2] = { LV_SYMBOL_PLUS, LV_SYMBOL_MINUS };
+    for (int i = 0; i < 2; i++) {
+        lv_obj_t *zb = lv_btn_create(s_overlay);
+        lv_obj_set_size(zb, 52, 44);
+        lv_obj_align(zb, LV_ALIGN_BOTTOM_RIGHT, -12, -84 + i * 52);
+        lv_obj_set_style_bg_color(zb, COL_PANEL, 0);
+        lv_obj_add_event_cb(zb, zoom_cb, LV_EVENT_CLICKED,
+                            (void *)(intptr_t)(i == 0 ? 1 : -1));
+        lv_obj_t *zl = lv_label_create(zb);
+        lv_label_set_text(zl, zsym[i]);
+        lv_obj_center(zl);
+    }
 
     /* Map: tile view when rendered, bundled world map otherwise */
     const lv_img_dsc_t *map = s_view_ok ? &s_tiles_dsc : ui_map_get_image();
@@ -339,6 +405,24 @@ static void map_tiles_task(void *arg)
     double mlat = (latmax - latmin) * 0.15 + 0.4;
     double mlon = (lonmax - lonmin) * 0.15 + 0.8;
 
+    /* manual pan/zoom on top of the automatic route view */
+    {
+        double clat = (latmin + latmax) / 2.0 + s_pan_dlat;
+        double clon = (lonmin + lonmax) / 2.0 + s_pan_dlon;
+        double hlat = ((latmax - latmin) / 2.0 + mlat) * s_zoom_mul;
+        double hlon = ((lonmax - lonmin) / 2.0 + mlon) * s_zoom_mul;
+        if (hlat < 0.05) hlat = 0.05;
+        if (hlon < 0.08) hlon = 0.08;
+        latmin = clat - hlat;
+        latmax = clat + hlat;
+        lonmin = clon - hlon;
+        lonmax = clon + hlon;
+        mlat = 0;
+        mlon = 0;
+        s_half_lat = hlat;
+        s_half_lon = hlon;
+    }
+
     if (s_tiles == NULL) {
         s_tiles = heap_caps_malloc(MAP_W * MAP_H * 2, MALLOC_CAP_SPIRAM);
     }
@@ -389,6 +473,9 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
         memset(&s_rt, 0, sizeof(s_rt));
     }
     s_view_ok = false;
+    s_zoom_mul = 1.0;
+    s_pan_dlat = 0;
+    s_pan_dlon = 0;
     s_generation++;
 
     s_overlay = lv_obj_create(lv_scr_act());
@@ -400,14 +487,10 @@ void ui_map_open(const aircraft_t *ac, const route_info_t *rt)
     lv_obj_set_style_pad_all(s_overlay, 0, 0);
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_SCROLLABLE);
 
+    lv_obj_add_event_cb(s_overlay, pan_gesture_cb, LV_EVENT_GESTURE, NULL);
+
     build_content();
 
     /* a still-running worker will respawn itself for this generation */
-    if (!s_tiles_busy) {
-        s_tiles_busy = true;
-        if (xTaskCreatePinnedToCore(map_tiles_task, "map_tiles", 10240,
-                                    (void *)(intptr_t)s_generation, 3, NULL, 0) != pdPASS) {
-            s_tiles_busy = false;
-        }
-    }
+    spawn_tiles();
 }

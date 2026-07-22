@@ -1,4 +1,5 @@
 #include "lang.h"
+#include "lvgl.h"
 #include "settings.h"
 
 static const lang_t k_en = {
@@ -31,6 +32,17 @@ static const lang_t k_en = {
     .not_found = "(not found)", .searching = "(searching...)",
     .saved_restarting = "Saved - restarting...",
     .loading_photo = "Loading photo...", .no_photo = "No photo available",
+    .look_fmt = LV_SYMBOL_EYE_OPEN " Look %s, %d\xC2\xB0 above horizon",
+    .cpa_fmt = "Passes in ~%d min at %.1f km",
+    .tab_net = "Network", .tab_place = "Location", .tab_filters = "Filters",
+    .tab_integr = "Integrations", .tab_system = "System",
+    .cpa_lbl = "Flyover alerts (CPA)",
+    .amb_idle_lbl = "Map screensaver after (min, 0=off)",
+    .night_lbl = "Night mode", .night_from = "From (HH:MM)", .night_to = "To (HH:MM)",
+    .lbl_ntfy = "ntfy.sh topic", .lbl_mqtt = "MQTT broker (Home Assistant)",
+    .lbl_fa = "FlightAware API key", .lbl_watch = "Watchlist (comma-sep)",
+    .lbl_webhook = "Webhook URL", .lbl_ladsb = "Local receiver aircraft.json URL",
+    .avg_word = "avg", .best_word = "best",
     .stats_title = "Session statistics",
     .st_hourly = "NEW AIRCRAFT PER HOUR",
     .st_top_airlines = "TOP AIRLINES",
@@ -71,6 +83,17 @@ static const lang_t k_pl = {
     .not_found = "(nie znaleziono)", .searching = "(szukam...)",
     .saved_restarting = "Zapisano - restart...",
     .loading_photo = "Wczytywanie zdjęcia...", .no_photo = "Brak zdjęcia",
+    .look_fmt = LV_SYMBOL_EYE_OPEN " Patrz %s, %d\xC2\xB0 nad horyzontem",
+    .cpa_fmt = "Minie Cię za ~%d min w odl. %.1f km",
+    .tab_net = "Sieć", .tab_place = "Miejsce", .tab_filters = "Filtry",
+    .tab_integr = "Integracje", .tab_system = "System",
+    .cpa_lbl = "Alerty przelotu (CPA)",
+    .amb_idle_lbl = "Wygaszacz z mapą po (min, 0=wył.)",
+    .night_lbl = "Tryb nocny", .night_from = "Od (HH:MM)", .night_to = "Do (HH:MM)",
+    .lbl_ntfy = "Temat ntfy.sh", .lbl_mqtt = "Broker MQTT (Home Assistant)",
+    .lbl_fa = "Klucz FlightAware API", .lbl_watch = "Watchlista (po przecinku)",
+    .lbl_webhook = "Adres webhooka", .lbl_ladsb = "URL aircraft.json lokalnego odbiornika",
+    .avg_word = "śr.", .best_word = "rekord",
     .stats_title = "Statystyki sesji",
     .st_hourly = "NOWE MASZYNY WG GODZIN",
     .st_top_airlines = "NAJCZĘSTSZE LINIE",

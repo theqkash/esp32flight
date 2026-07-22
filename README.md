@@ -37,9 +37,18 @@ Web panel with live map, stats and OTA:
 - **On-device settings** (touch): Wi-Fi scan + join, city search geocoding,
   fixed/auto (IP) location, radius, filters (ground traffic, airline-only),
   7 color themes, English/Polish UI
-- **Web panel** at `http://esp32flight.local` - live flight table, Leaflet
-  map, session stats, network info, `/screen.bmp` screenshots and **OTA
-  firmware updates** from the browser
+- **Spotter tools**: where to look (compass + elevation angle), flyover
+  prediction (CPA) with push alerts, METAR from the nearest station
+- **Local ADS-B receiver support**: point it at a dump1090/readsb
+  `aircraft.json` on your LAN and go fully independent of internet APIs
+- **Full-screen map screensaver** after idle, night mode with backlight-off
+  quiet hours, first-boot setup screen
+- **Integrations**: ntfy.sh push, MQTT with Home Assistant discovery,
+  generic webhooks, optional FlightAware AeroAPI for IATA flight numbers
+- **Web panel** at `http://esp32flight.local` - live flight table with trails
+  and country flags, Leaflet map, daily/session stats, spotting history with
+  CSV export, full device settings, Prometheus `/metrics`, `/screen.bmp`
+  screenshots and **OTA firmware updates** from the browser
 
 ## Data sources (all free, no API keys)
 

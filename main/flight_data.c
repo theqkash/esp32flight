@@ -9,6 +9,8 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "http_util.h"
+#include "geo_math.h"
+#include "settings.h"
 
 static const char *TAG = "flights";
 
@@ -156,6 +158,9 @@ static esp_err_t parse_point_response(const char *json, aircraft_list_t *out)
 
     cJSON *jlist = cJSON_GetObjectItem(root, "ac");
     if (!cJSON_IsArray(jlist)) {
+        jlist = cJSON_GetObjectItem(root, "aircraft");   /* dump1090/readsb */
+    }
+    if (!cJSON_IsArray(jlist)) {
         cJSON_Delete(root);
         return ESP_ERR_INVALID_RESPONSE;
     }
@@ -180,11 +185,46 @@ static esp_err_t parse_point_response(const char *json, aircraft_list_t *out)
     return ESP_OK;
 }
 
+/* Fill in distance/bearing from home for entries the source did not
+ * provide them for (local receivers), then drop out-of-range targets. */
+static void localize_and_filter(aircraft_list_t *out, double lat, double lon, int radius_nm)
+{
+    int w = 0;
+    for (int i = 0; i < out->count; i++) {
+        aircraft_t *ac = &out->ac[i];
+        if (ac->dist_nm < 0 && ac->has_pos) {
+            ac->dist_nm = (float)(geo_haversine_km(lat, lon, ac->lat, ac->lon) / 1.852);
+            ac->dir_deg = (float)geo_bearing_deg(lat, lon, ac->lat, ac->lon);
+        }
+        if (ac->dist_nm >= 0 && ac->dist_nm <= radius_nm) {
+            out->ac[w++] = *ac;
+        }
+    }
+    out->count = w;
+}
+
 esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_list_t *out)
 {
     char *buf = heap_caps_malloc(FETCH_BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (buf == NULL) {
         return ESP_ERR_NO_MEM;
+    }
+
+    /* LAN receiver first, when configured (dump1090/readsb aircraft.json) */
+    const char *local = settings_get()->local_adsb;
+    if (local[0] != '\0') {
+        esp_err_t lerr = http_get_to_buffer(local, buf, FETCH_BUF_SIZE, NULL);
+        if (lerr == ESP_OK) {
+            lerr = parse_point_response(buf, out);
+        }
+        if (lerr == ESP_OK) {
+            localize_and_filter(out, lat, lon, radius_nm);
+            qsort(out->ac, out->count, sizeof(aircraft_t), cmp_by_dist);
+            free(buf);
+            return ESP_OK;
+        }
+        ESP_LOGW(TAG, "local receiver failed (%s), falling back to internet",
+                 esp_err_to_name(lerr));
     }
 
     const char *bases[] = {
@@ -200,6 +240,7 @@ esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_li
             err = parse_point_response(buf, out);
         }
         if (err == ESP_OK) {
+            localize_and_filter(out, lat, lon, radius_nm);
             if (i > 0) {
                 ESP_LOGI(TAG, "using fallback source adsb.lol");
             }

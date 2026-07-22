@@ -15,7 +15,6 @@
 #include "lvgl_port.h"
 #include "settings.h"
 #include "wifi_mgr.h"
-/* theme.h is pulled in above for the COL_* macros; THEME_COUNT comes with it */
 
 #include "theme.h"
 
@@ -25,16 +24,17 @@
 #define COL_TEXT   (app_theme()->text)
 #define COL_DIM    (app_theme()->dim)
 
-#define MAX_SCAN_APS   15
+#define MAX_SCAN_APS    15
 #define MAX_GEO_RESULTS 6
 
 static lv_obj_t *s_overlay;
 static lv_obj_t *s_kb;
 static lv_obj_t *s_ta_ssid, *s_ta_pass, *s_ta_city, *s_ta_lat, *s_ta_lon;
-static lv_obj_t *s_dd_networks, *s_dd_cities;
-static lv_obj_t *s_sw_auto, *s_sw_ground, *s_sw_private;
+static lv_obj_t *s_ta_watch, *s_ta_ntfy, *s_ta_mqtt, *s_ta_fa, *s_ta_webhook, *s_ta_ladsb;
+static lv_obj_t *s_ta_night_from, *s_ta_night_to, *s_ta_amb_idle;
+static lv_obj_t *s_dd_networks, *s_dd_cities, *s_dd_theme, *s_dd_lang;
+static lv_obj_t *s_sw_auto, *s_sw_ground, *s_sw_private, *s_sw_cpa, *s_sw_night;
 static lv_obj_t *s_slider_radius, *s_radius_label;
-static lv_obj_t *s_dd_theme, *s_dd_lang;
 
 static bool s_scan_busy;
 static bool s_geo_busy;
@@ -69,7 +69,8 @@ static void kb_event_cb(lv_event_t *e)
 static void ta_focus_cb(lv_event_t *e)
 {
     lv_obj_t *ta = lv_event_get_target(e);
-    bool numeric = (ta == s_ta_lat || ta == s_ta_lon);
+    bool numeric = (ta == s_ta_lat || ta == s_ta_lon || ta == s_ta_amb_idle ||
+                    ta == s_ta_night_from || ta == s_ta_night_to);
     lv_keyboard_set_mode(s_kb, numeric ? LV_KEYBOARD_MODE_NUMBER : LV_KEYBOARD_MODE_TEXT_LOWER);
     lv_keyboard_set_textarea(s_kb, ta);
     lv_obj_clear_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
@@ -101,7 +102,7 @@ static void scan_task(void *arg)
                 for (int i = 0; i < n; i++) {
                     const char *ssid = (const char *)recs[i].ssid;
                     if (ssid[0] == '\0' || strstr(opts, ssid) != NULL) {
-                        continue;   /* skip hidden and duplicate SSIDs */
+                        continue;
                     }
                     strlcat(opts, ssid, sizeof(opts));
                     strlcat(opts, "\n", sizeof(opts));
@@ -196,7 +197,6 @@ static void city_pick_cb(lv_event_t *e)
     lv_textarea_set_text(s_ta_lat, coord);
     snprintf(coord, sizeof(coord), "%.4f", s_geo_results[sel].lon);
     lv_textarea_set_text(s_ta_lon, coord);
-    /* Picking a city implies fixed location. */
     lv_obj_clear_state(s_sw_auto, LV_STATE_CHECKED);
     lv_obj_clear_state(s_ta_lat, LV_STATE_DISABLED);
     lv_obj_clear_state(s_ta_lon, LV_STATE_DISABLED);
@@ -216,13 +216,6 @@ static void auto_loc_cb(lv_event_t *e)
     }
 }
 
-static void ota_unlock_cb(lv_event_t *e)
-{
-    /* applies immediately, never persisted: OTA re-locks on every restart */
-    settings_get()->ota_enabled =
-        lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
-}
-
 static void radius_cb(lv_event_t *e)
 {
     int nm = lv_slider_get_value(s_slider_radius);
@@ -231,17 +224,48 @@ static void radius_cb(lv_event_t *e)
     lv_label_set_text(s_radius_label, buf);
 }
 
+static void ota_unlock_cb(lv_event_t *e)
+{
+    settings_get()->ota_enabled =
+        lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+}
+
+static int parse_hhmm(const char *txt, int fallback)
+{
+    int h = 0, m = 0;
+    if (sscanf(txt, "%d:%d", &h, &m) == 2 && h >= 0 && h < 24 && m >= 0 && m < 60) {
+        return h * 60 + m;
+    }
+    return fallback;
+}
+
 static void save_cb(lv_event_t *e)
 {
     settings_t *cfg = settings_get();
     strlcpy(cfg->wifi_ssid, lv_textarea_get_text(s_ta_ssid), sizeof(cfg->wifi_ssid));
-    strlcpy(cfg->wifi_pass, lv_textarea_get_text(s_ta_pass), sizeof(cfg->wifi_pass));
+    const char *pw = lv_textarea_get_text(s_ta_pass);
+    if (pw[0] != '\0') {
+        strlcpy(cfg->wifi_pass, pw, sizeof(cfg->wifi_pass));
+    }
     cfg->use_fixed_loc = !lv_obj_has_state(s_sw_auto, LV_STATE_CHECKED);
     cfg->lat = atof(lv_textarea_get_text(s_ta_lat));
     cfg->lon = atof(lv_textarea_get_text(s_ta_lon));
     cfg->radius_nm = lv_slider_get_value(s_slider_radius);
     cfg->hide_ground = lv_obj_has_state(s_sw_ground, LV_STATE_CHECKED);
     cfg->hide_private = lv_obj_has_state(s_sw_private, LV_STATE_CHECKED);
+    cfg->cpa_alerts = lv_obj_has_state(s_sw_cpa, LV_STATE_CHECKED);
+    cfg->night_enabled = lv_obj_has_state(s_sw_night, LV_STATE_CHECKED);
+    cfg->night_start_min = parse_hhmm(lv_textarea_get_text(s_ta_night_from),
+                                      cfg->night_start_min);
+    cfg->night_end_min = parse_hhmm(lv_textarea_get_text(s_ta_night_to),
+                                    cfg->night_end_min);
+    cfg->ambient_idle_min = atoi(lv_textarea_get_text(s_ta_amb_idle));
+    strlcpy(cfg->watch_regs, lv_textarea_get_text(s_ta_watch), sizeof(cfg->watch_regs));
+    strlcpy(cfg->ntfy_topic, lv_textarea_get_text(s_ta_ntfy), sizeof(cfg->ntfy_topic));
+    strlcpy(cfg->mqtt_uri, lv_textarea_get_text(s_ta_mqtt), sizeof(cfg->mqtt_uri));
+    strlcpy(cfg->fa_key, lv_textarea_get_text(s_ta_fa), sizeof(cfg->fa_key));
+    strlcpy(cfg->webhook_url, lv_textarea_get_text(s_ta_webhook), sizeof(cfg->webhook_url));
+    strlcpy(cfg->local_adsb, lv_textarea_get_text(s_ta_ladsb), sizeof(cfg->local_adsb));
     cfg->theme = lv_dropdown_get_selected(s_dd_theme);
     cfg->lang = lv_dropdown_get_selected(s_dd_lang);
     settings_save();
@@ -249,11 +273,16 @@ static void save_cb(lv_event_t *e)
     lv_obj_t *msg = lv_label_create(s_overlay);
     lv_obj_set_style_text_color(msg, COL_ACCENT, 0);
     lv_obj_set_style_text_font(msg, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_bg_color(msg, COL_BG, 0);
+    lv_obj_set_style_bg_opa(msg, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_all(msg, 20, 0);
     lv_label_set_text(msg, L()->saved_restarting);
     lv_obj_center(msg);
     lv_refr_now(NULL);
     esp_restart();
 }
+
+/* ---- widget helpers ---- */
 
 static lv_obj_t *add_label(lv_obj_t *parent, const char *text, int x, int y)
 {
@@ -316,12 +345,32 @@ static lv_obj_t *add_dropdown(lv_obj_t *parent, int x, int y, int w, lv_event_cb
     return dd;
 }
 
+static lv_obj_t *add_switch(lv_obj_t *parent, const char *label, int x, int y, bool on)
+{
+    add_label(parent, label, x, y + 6);
+    lv_obj_t *sw = lv_switch_create(parent);
+    lv_obj_set_pos(sw, x + 290, y);
+    if (on) {
+        lv_obj_add_state(sw, LV_STATE_CHECKED);
+    }
+    return sw;
+}
+
+static lv_obj_t *tab_page(lv_obj_t *tv, const char *name)
+{
+    lv_obj_t *page = lv_tabview_add_tab(tv, name);
+    lv_obj_set_style_pad_all(page, 14, 0);
+    lv_obj_set_scroll_dir(page, LV_DIR_VER);
+    return page;
+}
+
 void ui_settings_open(void)
 {
     if (s_overlay != NULL) {
         return;
     }
     settings_t *cfg = settings_get();
+    char buf[48];
 
     s_overlay = lv_obj_create(lv_scr_act());
     lv_obj_set_size(s_overlay, 800, 480);
@@ -329,115 +378,117 @@ void ui_settings_open(void)
     lv_obj_set_style_bg_color(s_overlay, COL_BG, 0);
     lv_obj_set_style_border_width(s_overlay, 0, 0);
     lv_obj_set_style_radius(s_overlay, 0, 0);
-    lv_obj_set_style_pad_all(s_overlay, 20, 0);
-    lv_obj_set_scroll_dir(s_overlay, LV_DIR_VER);
+    lv_obj_set_style_pad_all(s_overlay, 0, 0);
+    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_SCROLLABLE);
 
+    /* header row: title + save + close */
     lv_obj_t *title = lv_label_create(s_overlay);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(title, &font_pl_20, 0);
     lv_obj_set_style_text_color(title, COL_ACCENT, 0);
     lv_label_set_text_fmt(title, LV_SYMBOL_SETTINGS " %s", L()->settings_title);
-    lv_obj_set_pos(title, 0, 0);
+    lv_obj_set_pos(title, 14, 12);
 
-    lv_obj_t *btn_close = add_button(s_overlay, 0, 0, 52, 40, LV_SYMBOL_CLOSE, close_cb, COL_PANEL);
-    lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, 0, -4);
+    snprintf(buf, sizeof(buf), LV_SYMBOL_SAVE "  %s", L()->save);
+    add_button(s_overlay, 570, 6, 150, 38, buf, save_cb, COL_ACCENT);
+    add_button(s_overlay, 734, 6, 54, 38, LV_SYMBOL_CLOSE, close_cb, COL_PANEL);
 
-    /* Wi-Fi */
-    add_label(s_overlay, L()->wifi_ssid, 0, 52);
-    s_ta_ssid = add_textarea(s_overlay, 0, 74, 290, cfg->wifi_ssid, false);
-    add_button(s_overlay, 300, 74, 56, 44, LV_SYMBOL_REFRESH, scan_click_cb, COL_PANEL);
-    s_dd_networks = add_dropdown(s_overlay, 366, 74, 250, network_pick_cb);
+    lv_obj_t *tv = lv_tabview_create(s_overlay, LV_DIR_TOP, 44);
+    lv_obj_set_size(tv, 800, 480 - 50);
+    lv_obj_set_pos(tv, 0, 50);
+    lv_obj_set_style_bg_color(tv, COL_BG, 0);
+    lv_obj_t *bar = lv_tabview_get_tab_btns(tv);
+    lv_obj_set_style_bg_color(bar, COL_PANEL, 0);
+    lv_obj_set_style_text_color(bar, COL_TEXT, 0);
+    lv_obj_set_style_text_font(bar, &font_pl_16, 0);
+
+    /* --- Network --- */
+    lv_obj_t *p = tab_page(tv, L()->tab_net);
+    add_label(p, L()->wifi_ssid, 0, 0);
+    s_ta_ssid = add_textarea(p, 0, 24, 290, cfg->wifi_ssid, false);
+    add_button(p, 300, 24, 56, 44, LV_SYMBOL_REFRESH, scan_click_cb, COL_PANEL);
+    s_dd_networks = add_dropdown(p, 366, 24, 250, network_pick_cb);
     lv_dropdown_set_text(s_dd_networks, L()->dd_networks);
+    add_label(p, L()->password, 0, 84);
+    s_ta_pass = add_textarea(p, 0, 108, 380, "", true);
 
-    add_label(s_overlay, L()->password, 0, 128);
-    s_ta_pass = add_textarea(s_overlay, 0, 150, 380, cfg->wifi_pass, true);
-
-    /* Location */
-    add_label(s_overlay, L()->auto_location, 0, 208);
-    s_sw_auto = lv_switch_create(s_overlay);
-    lv_obj_set_pos(s_sw_auto, 170, 202);
-    if (!cfg->use_fixed_loc) {
-        lv_obj_add_state(s_sw_auto, LV_STATE_CHECKED);
-    }
+    /* --- Location --- */
+    p = tab_page(tv, L()->tab_place);
+    s_sw_auto = add_switch(p, L()->auto_location, 0, 0, !cfg->use_fixed_loc);
     lv_obj_add_event_cb(s_sw_auto, auto_loc_cb, LV_EVENT_VALUE_CHANGED, NULL);
-
-    add_label(s_overlay, L()->hide_ground, 280, 208);
-    s_sw_ground = lv_switch_create(s_overlay);
-    lv_obj_set_pos(s_sw_ground, 420, 202);
-    if (cfg->hide_ground) {
-        lv_obj_add_state(s_sw_ground, LV_STATE_CHECKED);
-    }
-
-    add_label(s_overlay, L()->airline_only, 545, 208);
-    s_sw_private = lv_switch_create(s_overlay);
-    lv_obj_set_pos(s_sw_private, 690, 202);
-    if (cfg->hide_private) {
-        lv_obj_add_state(s_sw_private, LV_STATE_CHECKED);
-    }
-
-    add_label(s_overlay, L()->city_search, 0, 248);
-    s_ta_city = add_textarea(s_overlay, 0, 270, 290, "", false);
-    add_button(s_overlay, 300, 270, 56, 44, LV_SYMBOL_GPS, city_search_cb, COL_PANEL);
-    s_dd_cities = add_dropdown(s_overlay, 366, 270, 380, city_pick_cb);
+    add_label(p, L()->city_search, 0, 56);
+    s_ta_city = add_textarea(p, 0, 80, 290, "", false);
+    add_button(p, 300, 80, 56, 44, LV_SYMBOL_GPS, city_search_cb, COL_PANEL);
+    s_dd_cities = add_dropdown(p, 366, 80, 380, city_pick_cb);
     lv_dropdown_set_text(s_dd_cities, L()->dd_results);
-
-    char coord[24];
-    add_label(s_overlay, L()->latitude, 0, 324);
-    snprintf(coord, sizeof(coord), "%.4f", cfg->lat);
-    s_ta_lat = add_textarea(s_overlay, 0, 346, 200, coord, false);
-    add_label(s_overlay, L()->longitude, 220, 324);
-    snprintf(coord, sizeof(coord), "%.4f", cfg->lon);
-    s_ta_lon = add_textarea(s_overlay, 220, 346, 200, coord, false);
+    add_label(p, L()->latitude, 0, 140);
+    snprintf(buf, sizeof(buf), "%.4f", cfg->lat);
+    s_ta_lat = add_textarea(p, 0, 164, 200, buf, false);
+    add_label(p, L()->longitude, 220, 140);
+    snprintf(buf, sizeof(buf), "%.4f", cfg->lon);
+    s_ta_lon = add_textarea(p, 220, 164, 200, buf, false);
     if (!cfg->use_fixed_loc) {
         lv_obj_add_state(s_ta_lat, LV_STATE_DISABLED);
         lv_obj_add_state(s_ta_lon, LV_STATE_DISABLED);
     }
-
-    /* Radius */
-    add_label(s_overlay, L()->search_radius, 0, 404);
-    s_slider_radius = lv_slider_create(s_overlay);
+    add_label(p, L()->search_radius, 0, 226);
+    s_slider_radius = lv_slider_create(p);
     lv_obj_set_size(s_slider_radius, 420, 16);
-    lv_obj_set_pos(s_slider_radius, 0, 436);
+    lv_obj_set_pos(s_slider_radius, 0, 258);
     lv_slider_set_range(s_slider_radius, 10, 250);
     lv_slider_set_value(s_slider_radius, cfg->radius_nm, LV_ANIM_OFF);
     lv_obj_add_event_cb(s_slider_radius, radius_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    s_radius_label = lv_label_create(s_overlay);
-    lv_obj_set_style_text_font(s_radius_label, &font_pl_16, 0);
+    s_radius_label = add_label(p, "", 440, 254);
     lv_obj_set_style_text_color(s_radius_label, COL_TEXT, 0);
-    lv_obj_set_pos(s_radius_label, 440, 432);
-    char buf[48];
     snprintf(buf, sizeof(buf), "%d nm  (%d km)", cfg->radius_nm, (int)(cfg->radius_nm * 1.852));
     lv_label_set_text(s_radius_label, buf);
 
-    /* Theme + language */
-    add_label(s_overlay, L()->theme_lbl, 0, 482);
-    s_dd_theme = add_dropdown(s_overlay, 90, 474, 150, NULL);
+    /* --- Filters + alerts --- */
+    p = tab_page(tv, L()->tab_filters);
+    s_sw_ground = add_switch(p, L()->hide_ground, 0, 0, cfg->hide_ground);
+    s_sw_private = add_switch(p, L()->airline_only, 380, 0, cfg->hide_private);
+    s_sw_cpa = add_switch(p, L()->cpa_lbl, 0, 52, cfg->cpa_alerts);
+    add_label(p, L()->lbl_watch, 0, 108);
+    s_ta_watch = add_textarea(p, 0, 132, 740, cfg->watch_regs, false);
+    s_sw_night = add_switch(p, L()->night_lbl, 0, 192, cfg->night_enabled);
+    add_label(p, L()->night_from, 380, 186);
+    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_start_min / 60, cfg->night_start_min % 60);
+    s_ta_night_from = add_textarea(p, 380, 210, 110, buf, false);
+    add_label(p, L()->night_to, 510, 186);
+    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_end_min / 60, cfg->night_end_min % 60);
+    s_ta_night_to = add_textarea(p, 510, 210, 110, buf, false);
+    add_label(p, L()->amb_idle_lbl, 0, 250);
+    snprintf(buf, sizeof(buf), "%d", cfg->ambient_idle_min);
+    s_ta_amb_idle = add_textarea(p, 380, 244, 110, buf, false);
+
+    /* --- Integrations --- */
+    p = tab_page(tv, L()->tab_integr);
+    add_label(p, L()->lbl_ntfy, 0, 0);
+    s_ta_ntfy = add_textarea(p, 0, 24, 360, cfg->ntfy_topic, false);
+    add_label(p, L()->lbl_mqtt, 380, 0);
+    s_ta_mqtt = add_textarea(p, 380, 24, 360, cfg->mqtt_uri, false);
+    add_label(p, L()->lbl_fa, 0, 84);
+    s_ta_fa = add_textarea(p, 0, 108, 360, cfg->fa_key, false);
+    add_label(p, L()->lbl_webhook, 380, 84);
+    s_ta_webhook = add_textarea(p, 380, 108, 360, cfg->webhook_url, false);
+    add_label(p, L()->lbl_ladsb, 0, 168);
+    s_ta_ladsb = add_textarea(p, 0, 192, 740, cfg->local_adsb, false);
+
+    /* --- System --- */
+    p = tab_page(tv, L()->tab_system);
+    add_label(p, L()->theme_lbl, 0, 0);
+    s_dd_theme = add_dropdown(p, 0, 24, 180, NULL);
     lv_dropdown_set_options(s_dd_theme, theme_names_option_string());
     lv_dropdown_set_selected(s_dd_theme, cfg->theme < THEME_COUNT ? cfg->theme : 0);
-
-    add_label(s_overlay, L()->language_lbl, 260, 482);
-    s_dd_lang = add_dropdown(s_overlay, 340, 474, 150, NULL);
+    add_label(p, L()->language_lbl, 220, 0);
+    s_dd_lang = add_dropdown(p, 220, 24, 180, NULL);
     lv_dropdown_set_options(s_dd_lang, "English\nPolski");
     lv_dropdown_set_selected(s_dd_lang, cfg->lang == 1 ? 1 : 0);
 
-    /* Save */
-    char save_txt[32];
-    snprintf(save_txt, sizeof(save_txt), LV_SYMBOL_SAVE "  %s", L()->save);
-    lv_obj_t *btn_save = add_button(s_overlay, 560, 470, 200, 52, save_txt, save_cb, COL_ACCENT);
-    (void)btn_save;
-
-    /* OTA unlock: instant, session-only, no save needed */
-    add_label(s_overlay, L()->ota_unlock, 0, 548);
-    lv_obj_t *sw_ota = lv_switch_create(s_overlay);
-    lv_obj_set_pos(sw_ota, 420, 542);
-    if (cfg->ota_enabled) {
-        lv_obj_add_state(sw_ota, LV_STATE_CHECKED);
-    }
+    lv_obj_t *sw_ota = add_switch(p, L()->ota_unlock, 0, 92, cfg->ota_enabled);
     lv_obj_add_event_cb(sw_ota, ota_unlock_cb, LV_EVENT_VALUE_CHANGED, NULL);
-
-    lv_obj_t *hint = add_label(s_overlay, L()->ota_hint, 0, 584);
+    lv_obj_t *hint = add_label(p, L()->ota_hint, 0, 138);
     lv_obj_set_style_text_font(hint, &font_pl_14, 0);
 
-    /* Network info footer */
     char netbuf[80] = "";
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip_info;
@@ -446,10 +497,9 @@ void ui_settings_open(void)
     } else {
         snprintf(netbuf, sizeof(netbuf), "IP: -");
     }
-    lv_obj_t *netl = add_label(s_overlay, netbuf, 0, 646);
-    lv_obj_set_style_text_color(netl, COL_DIM, 0);
+    add_label(p, netbuf, 0, 200);
 
-    /* Keyboard on the top layer so it stays put while the form scrolls */
+    /* keyboard on the top layer */
     s_kb = lv_keyboard_create(lv_layer_top());
     lv_obj_set_size(s_kb, 800, 210);
     lv_obj_align(s_kb, LV_ALIGN_BOTTOM_MID, 0, 0);

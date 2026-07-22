@@ -29,6 +29,10 @@
 #include "mqtt_pub.h"
 #include "notify.h"
 #include "obslog.h"
+#include "airports.h"
+#include "dailystats.h"
+#include "metar.h"
+#include "regcountry.h"
 #include "trails.h"
 #include "tz.h"
 #include "ui.h"
@@ -187,6 +191,52 @@ static void maybe_notify_emergency(const aircraft_t *ac)
     notify_send("esp32flight: EMERGENCY", msg);
 }
 
+/* Flyover prediction: push once per hex when an interesting aircraft will
+ * pass within 5 km in the next 15 minutes. */
+static void maybe_notify_cpa(const aircraft_list_t *list, double home_lat, double home_lon)
+{
+    if (!settings_get()->cpa_alerts) {
+        return;
+    }
+    static char notified[12][ICAO_HEX_LEN];
+    static int notified_next;
+
+    for (int i = 0; i < list->count; i++) {
+        const aircraft_t *ac = &list->ac[i];
+        if (!ac->has_pos || ac->on_ground ||
+            !flight_is_interesting(ac, settings_get()->watch_regs)) {
+            continue;
+        }
+        double t_s, cpa_km;
+        if (!geo_cpa(home_lat, home_lon, ac->lat, ac->lon,
+                     ac->track_deg, ac->gs_kts, &t_s, &cpa_km)) {
+            continue;
+        }
+        if (cpa_km > 5.0 || t_s > 15 * 60) {
+            continue;
+        }
+        bool known = false;
+        for (int k = 0; k < 12; k++) {
+            if (strcmp(notified[k], ac->hex) == 0) {
+                known = true;
+                break;
+            }
+        }
+        if (known) {
+            continue;
+        }
+        strlcpy(notified[notified_next], ac->hex, ICAO_HEX_LEN);
+        notified_next = (notified_next + 1) % 12;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "%s (%s) passes in ~%d min at %.1f km, %d ft",
+                 ac->callsign[0] ? ac->callsign : ac->hex,
+                 ac->type_icao[0] ? ac->type_icao : "?",
+                 (int)(t_s / 60), cpa_km, ac->alt_baro_ft);
+        notify_send("esp32flight: flyover incoming", msg);
+    }
+}
+
 /* Once a day: compare the newest GitHub release against the running build */
 static void check_updates(void)
 {
@@ -277,6 +327,10 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
     cJSON_AddNumberToObject(js, "max_dist_km", (int)s_stats.max_dist_km);
     cJSON_AddStringToObject(js, "max_dist_callsign", s_stats.max_dist_cs);
     cJSON_AddNumberToObject(js, "uptime_min", (int)(esp_timer_get_time() / 60000000LL));
+    if (metar_get()[0] != '\0') {
+        cJSON_AddStringToObject(js, "metar", metar_get());
+    }
+    dailystats_to_json(js, "days");
     cJSON_AddStringToObject(js, "version", esp_app_get_description()->version);
     cJSON *jh = cJSON_AddArrayToObject(js, "hours");
     for (int i = 0; i < 24; i++) {
@@ -307,6 +361,24 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
             cJSON_AddNumberToObject(jf, "lat", ac->lat);
             cJSON_AddNumberToObject(jf, "lon", ac->lon);
             cJSON_AddNumberToObject(jf, "track", (int)ac->track_deg);
+            float tlat[12], tlon[12];
+            int tn = trails_get(ac->hex, tlat, tlon, 12);
+            if (tn >= 2) {
+                cJSON *jt2 = cJSON_AddArrayToObject(jf, "trail");
+                for (int k = 0; k < tn; k++) {
+                    cJSON *pt = cJSON_CreateArray();
+                    cJSON_AddItemToArray(pt, cJSON_CreateNumber(tlat[k]));
+                    cJSON_AddItemToArray(pt, cJSON_CreateNumber(tlon[k]));
+                    cJSON_AddItemToArray(jt2, pt);
+                }
+            }
+        }
+        if (ac->reg[0]) {
+            cJSON_AddStringToObject(jf, "reg", ac->reg);
+            const char *cc = reg_country(ac->reg);
+            if (cc != NULL) {
+                cJSON_AddStringToObject(jf, "cc", cc);
+            }
         }
 
         const route_info_t *rt = routes_get_cached(ac->callsign);
@@ -413,6 +485,9 @@ static void flight_task(void *arg)
         lvgl_port_unlock();
     }
 
+    static char metar_station[5];
+    airports_nearest(lat, lon, metar_station);
+
     mqtt_pub_start();
 
     char status[96];
@@ -448,6 +523,21 @@ static void flight_task(void *arg)
                     ui_set_weather(wbuf);
                     lvgl_port_unlock();
                 }
+            }
+            if (metar_station[0] != '\0') {
+                metar_fetch(metar_station);
+            }
+            time_t dnow = time(NULL);
+            if (dnow > 1600000000) {
+                time_t l = dnow + (tz_home_known() ? tz_home_offset() : 0);
+                struct tm tm;
+                gmtime_r(&l, &tm);
+                char date[24];
+                snprintf(date, sizeof(date), "%04d-%02d-%02d",
+                         (tm.tm_year + 1900) % 10000, (tm.tm_mon + 1) % 100,
+                         tm.tm_mday % 100);
+                dailystats_update(date, s_stats.unique, s_stats.max_alt_ft,
+                                  (int)s_stats.max_gs_kt, (int)s_stats.max_dist_km);
             }
             last_weather_ms = now_ms;
         }
@@ -517,6 +607,7 @@ static void flight_task(void *arg)
             if (emergency != NULL) {
                 maybe_notify_emergency(emergency);
             }
+            maybe_notify_cpa(list, lat, lon);
             if (emergency != NULL) {
                 snprintf(status, sizeof(status), LV_SYMBOL_WARNING " %s squawk %s!",
                          emergency->callsign[0] ? emergency->callsign : emergency->hex,

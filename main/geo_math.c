@@ -45,6 +45,42 @@ void geo_gc_point(double lat1, double lon1, double lat2, double lon2,
     *lon = atan2(y, x) * 180.0 / M_PI;
 }
 
+double geo_elevation_deg(double dist_km, int alt_ft)
+{
+    double alt_km = alt_ft * 0.0003048;
+    if (dist_km < 0.05) {
+        return 90.0;
+    }
+    return atan2(alt_km, dist_km) * 180.0 / M_PI;
+}
+
+bool geo_cpa(double home_lat, double home_lon,
+             double ac_lat, double ac_lon, double track_deg, double gs_kts,
+             double *t_s, double *cpa_km)
+{
+    /* local flat-earth approximation around home, km */
+    double coslat = cos(home_lat * M_PI / 180.0);
+    double rx = (ac_lon - home_lon) * 111.32 * coslat;
+    double ry = (ac_lat - home_lat) * 110.57;
+    double v_kms = gs_kts * 1.852 / 3600.0;
+    double tr = track_deg * M_PI / 180.0;
+    double vx = sin(tr) * v_kms;
+    double vy = cos(tr) * v_kms;
+    double v2 = vx * vx + vy * vy;
+    if (v2 < 1e-9) {
+        return false;
+    }
+    double t = -(rx * vx + ry * vy) / v2;
+    if (t <= 0) {
+        return false;   /* already past the closest point */
+    }
+    double cx = rx + vx * t;
+    double cy = ry + vy * t;
+    *t_s = t;
+    *cpa_km = sqrt(cx * cx + cy * cy);
+    return true;
+}
+
 bool geo_route_plausible(double orig_lat, double orig_lon,
                          double dest_lat, double dest_lon,
                          double cur_lat, double cur_lon)

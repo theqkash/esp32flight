@@ -38,6 +38,11 @@ void settings_load(void)
     s_settings.theme = 0;
     s_settings.lang = 1;
     s_settings.ota_enabled = false;   /* never persisted, armed per session */
+    s_settings.cpa_alerts = true;
+    s_settings.night_enabled = false;
+    s_settings.night_start_min = 23 * 60;
+    s_settings.night_end_min = 6 * 60 + 30;
+    s_settings.ambient_idle_min = 10;
 
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) {
@@ -86,6 +91,25 @@ void settings_load(void)
     get_str(h, "mqtt", s_settings.mqtt_uri, sizeof(s_settings.mqtt_uri));
     get_str(h, "fakey", s_settings.fa_key, sizeof(s_settings.fa_key));
     get_str(h, "watch", s_settings.watch_regs, sizeof(s_settings.watch_regs));
+    get_str(h, "webhook", s_settings.webhook_url, sizeof(s_settings.webhook_url));
+    get_str(h, "ladsb", s_settings.local_adsb, sizeof(s_settings.local_adsb));
+    uint8_t b8 = 0;
+    if (nvs_get_u8(h, "cpa", &b8) == ESP_OK) {
+        s_settings.cpa_alerts = b8 != 0;
+    }
+    if (nvs_get_u8(h, "night", &b8) == ESP_OK) {
+        s_settings.night_enabled = b8 != 0;
+    }
+    int32_t m = 0;
+    if (nvs_get_i32(h, "night_s", &m) == ESP_OK && m >= 0 && m < 1440) {
+        s_settings.night_start_min = m;
+    }
+    if (nvs_get_i32(h, "night_e", &m) == ESP_OK && m >= 0 && m < 1440) {
+        s_settings.night_end_min = m;
+    }
+    if (nvs_get_i32(h, "amb_idle", &m) == ESP_OK && m >= 0 && m <= 240) {
+        s_settings.ambient_idle_min = m;
+    }
     nvs_close(h);
     ESP_LOGI(TAG, "loaded: ssid=\"%s\" fixed_loc=%d radius=%d nm",
              s_settings.wifi_ssid, s_settings.use_fixed_loc, s_settings.radius_nm);
@@ -116,6 +140,13 @@ esp_err_t settings_save(void)
     nvs_set_str(h, "mqtt", s_settings.mqtt_uri);
     nvs_set_str(h, "fakey", s_settings.fa_key);
     nvs_set_str(h, "watch", s_settings.watch_regs);
+    nvs_set_str(h, "webhook", s_settings.webhook_url);
+    nvs_set_str(h, "ladsb", s_settings.local_adsb);
+    nvs_set_u8(h, "cpa", s_settings.cpa_alerts ? 1 : 0);
+    nvs_set_u8(h, "night", s_settings.night_enabled ? 1 : 0);
+    nvs_set_i32(h, "night_s", s_settings.night_start_min);
+    nvs_set_i32(h, "night_e", s_settings.night_end_min);
+    nvs_set_i32(h, "amb_idle", s_settings.ambient_idle_min);
 
     err = nvs_commit(h);
     nvs_close(h);

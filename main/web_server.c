@@ -9,6 +9,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+#include "esp_timer.h"
 #include "esp_system.h"
 #include "mdns.h"
 
@@ -65,7 +66,7 @@ static const char INDEX_HTML[] =
 "<div id='ota'><span class='dim'>Firmware update (.bin): </span>"
 "<input type='file' id='fw'> <button id='otabtn' onclick='ota()' disabled>Flash</button> <span id='otastat' class='dim'></span>"
 "<div class='dim' style='margin-top:8px'>"
-"<a href='/screen.bmp'>screenshot</a> &middot; <a href='/api/state'>api</a> &middot; "
+"<a href='/screen.bmp'>screenshot</a> &middot; <a href='/api/state'>api</a> &middot; <a href='/api/log' download='esp32flight-log.tsv'>log CSV</a> &middot; <a href='/metrics'>metrics</a> &middot; "
 "<a href='https://github.com/theqkash/esp32flight'>github.com/theqkash/esp32flight</a></div></div>"
 "<div class='sect'><h3>Device settings</h3><div class='grid2'>"
 "<div><label>Wi-Fi SSID</label><input id='c_ssid'></div>"
@@ -82,6 +83,13 @@ static const char INDEX_HTML[] =
 "<div><label>MQTT broker (Home Assistant)</label><input id='c_mqtt_uri' placeholder='mqtt://user:pass@host:1883'></div>"
 "<div><label>FlightAware AeroAPI key (IATA numbers)</label><input id='c_fa_key'></div>"
 "<div><label>Watchlist (regs/prefixes, comma-sep)</label><input id='c_watch_regs' placeholder='SP-LR,RCH'></div>"
+"<div><label>Webhook URL (events)</label><input id='c_webhook_url'></div>"
+"<div><label>Local receiver aircraft.json URL</label><input id='c_local_adsb' placeholder='http://192.168.1.50/data/aircraft.json'></div>"
+"<div><label>Flyover (CPA) alerts</label><select id='c_cpa_alerts'><option value='0'>off</option><option value='1'>on</option></select></div>"
+"<div><label>Night mode</label><select id='c_night_enabled'><option value='0'>off</option><option value='1'>on</option></select></div>"
+"<div><label>Night from (min from midnight)</label><input id='c_night_start_min' type='number'></div>"
+"<div><label>Night to (min from midnight)</label><input id='c_night_end_min' type='number'></div>"
+"<div><label>Map screensaver after (min, 0=off)</label><input id='c_ambient_idle_min' type='number'></div>"
 "</div><div style='margin-top:10px'><button onclick='saveCfg()'>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
 "<div class='sect'><h3>Spotting history</h3>"
 "<input id='hq' placeholder='filter (callsign, type...)'> <button onclick='loadHist()'>Load</button>"
@@ -99,6 +107,7 @@ static const char INDEX_HTML[] =
 "if(!layer)return;layer.clearLayers();"
 "(d.flights||[]).forEach(f=>{if(f.lat===undefined)return;"
 "const ic=L.divIcon({className:'plane',html:`<div style='transform:rotate(${(f.track||0)-45}deg)'>\\u2708</div>`});"
+"if(f.trail&&f.trail.length>1)L.polyline(f.trail,{color:'#ffd166',weight:1,opacity:.5}).addTo(layer);"
 "const m=L.marker([f.lat,f.lon],{icon:ic}).addTo(layer);"
 "let t=`<b>${f.callsign}</b><br>${f.airline||''} ${f.type||''}<br>${f.alt_ft} ft \\u00B7 ${f.gs_kt} kt`;"
 "if(f.route){t+=`<br>${f.route.from} \\u2192 ${f.route.to} (${f.route.progress}%)`;"
@@ -109,14 +118,15 @@ static const char INDEX_HTML[] =
 "const r=await fetch('/api/state');const d=await r.json();"
 "let w=d.weather?` &nbsp;|&nbsp; ${d.weather.temp_c}\\u00B0C ${d.weather.desc}, wind ${d.weather.wind_kmh} km/h`:'';"
 "const n=d.net||{};"
-"document.getElementById('hdr').innerHTML=`${d.city||''} (${(+d.lat).toFixed(3)}, ${(+d.lon).toFixed(3)}), radius ${d.radius_km} km${w}`;"
+"document.getElementById('hdr').innerHTML=`${d.city||''} (${(+d.lat).toFixed(3)}, ${(+d.lon).toFixed(3)}), radius ${d.radius_km} km${w}`;+((d.stats&&d.stats.metar)?`<br>${d.stats.metar}`:'');"
 "const s=d.stats||{};document.getElementById('cards').innerHTML="
 "`<div class='card'>Network<b>${n.ssid||'-'} ${n.rssi||''} dBm</b>${n.ip||''} \\u00B7 ${n.mdns||''}</div>`+"
 "`<div class='card'>Unique aircraft<b>${s.unique_aircraft||0}</b></div>`+"
 "`<div class='card'>Max altitude<b>${(s.max_alt_ft||0).toLocaleString()} ft</b></div>`+"
 "`<div class='card'>Fastest<b>${s.max_gs_kt||0} kt</b></div>`+"
 "`<div class='card'>Farthest<b>${s.max_dist_km||0} km (${s.max_dist_callsign||'-'})</b></div>`+"
-"`<div class='card'>Uptime<b>${s.uptime_min||0} min</b></div>`;"
+"`<div class='card'>Uptime<b>${s.uptime_min||0} min</b></div>`+"
+"((s.days&&s.days.length)?`<div class='card'>Last days<b style='display:flex;align-items:flex-end;gap:2px;height:28px'>${s.days.slice(-14).map(dd=>`<i title='${dd.d}: ${dd.u}' style='display:block;width:8px;background:#4da3ff;height:${Math.max(2,Math.round(28*dd.u/Math.max(...s.days.map(x=>x.u),1)))}px'></i>`).join('')}</b></div>`:'');"
 "const ob=document.getElementById('otabtn');ob.disabled=!d.ota_enabled;"
 "document.getElementById('otastat').textContent=d.ota_enabled?'':'locked - enable OTA in device settings';"
 "drawMap(d);"
@@ -124,16 +134,20 @@ static const char INDEX_HTML[] =
 "const em=['7700','7600','7500'].includes(f.squawk);"
 "const rt=f.route?`${f.route.from}${f.route.from_time?' '+f.route.from_time:''} \\u2192 ${f.route.to}${f.route.to_time?' '+f.route.to_time:''}<div class='dim'>${f.route.from_city||''}${f.route.from_cc?' ('+f.route.from_cc+')':''} \\u2192 ${f.route.to_city||''}${f.route.to_cc?' ('+f.route.to_cc+')':''}</div>`:'<span class=dim>?</span>';"
 "const pr=f.route?`<div class='bar'><i style='width:${f.route.progress}%'></i></div>`:'';"
-"return `<tr${em?' class=em':(f.interesting?' class=gold':'')}><td><b>${f.callsign}</b>${f.flight_iata?` <span class=dim>${f.flight_iata}</span>`:''}${em?' \\u26A0 '+f.squawk:''}</td>"
+"const flag=f.cc?String.fromCodePoint(...[...f.cc].map(ch=>127397+ch.charCodeAt(0)))+' ':'';"
+"return `<tr${em?' class=em':(f.interesting?' class=gold':'')}><td>${flag}<b>${f.callsign}</b>${f.flight_iata?` <span class=dim>${f.flight_iata}</span>`:''}${em?' \\u26A0 '+f.squawk:''}</td>"
 "<td>${f.airline||'<span class=dim>-</span>'}</td><td>${f.type||''}</td><td>${rt}</td><td>${pr}</td>"
 "<td>${f.alt_ft?f.alt_ft.toLocaleString()+' ft':'gnd'}</td><td>${f.gs_kt} kt</td><td>${f.dist_km} km</td></tr>`;"
 "}).join('');}catch(e){}}"
 "async function loadCfg(){try{const r=await fetch('/api/config');const c=await r.json();"
 "for(const k in c){const el=document.getElementById('c_'+k);if(!el)continue;"
-"if(el.tagName==='SELECT')el.value=(+c[k])?1*c[k]:(c[k]===true?1:0);else el.value=c[k];}"
+"if(el.tagName==='SELECT')el.value=(c[k]===true||c[k]===1||c[k]==='1')?1:( +c[k]||0);else el.value=c[k];}"
 "document.getElementById('c_theme').value=c.theme;document.getElementById('c_lang').value=c.lang;}catch(e){}}"
 "async function saveCfg(){const c={};"
-"['ssid','pass','ntfy_topic','mqtt_uri','fa_key','watch_regs'].forEach(k=>{const v=document.getElementById('c_'+k).value;if(k!=='pass'||v)c[k]=v;});"
+"['ssid','pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb'].forEach(k=>{const v=document.getElementById('c_'+k).value;if(k!=='pass'||v)c[k]=v;});"
+"c.cpa_alerts=document.getElementById('c_cpa_alerts').value==='1';"
+"c.night_enabled=document.getElementById('c_night_enabled').value==='1';"
+"['night_start_min','night_end_min','ambient_idle_min'].forEach(k=>{c[k]=+document.getElementById('c_'+k).value;});"
 "c.fixed=document.getElementById('c_fixed').value==='1';"
 "c.hide_ground=document.getElementById('c_hide_ground').value==='1';"
 "c.airline_only=document.getElementById('c_airline_only').value==='1';"
@@ -257,6 +271,13 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddStringToObject(root, "mqtt_uri", c->mqtt_uri);
     cJSON_AddStringToObject(root, "fa_key", c->fa_key);
     cJSON_AddStringToObject(root, "watch_regs", c->watch_regs);
+    cJSON_AddStringToObject(root, "webhook_url", c->webhook_url);
+    cJSON_AddStringToObject(root, "local_adsb", c->local_adsb);
+    cJSON_AddBoolToObject(root, "cpa_alerts", c->cpa_alerts);
+    cJSON_AddBoolToObject(root, "night_enabled", c->night_enabled);
+    cJSON_AddNumberToObject(root, "night_start_min", c->night_start_min);
+    cJSON_AddNumberToObject(root, "night_end_min", c->night_end_min);
+    cJSON_AddNumberToObject(root, "ambient_idle_min", c->ambient_idle_min);
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     httpd_resp_set_type(req, "application/json");
@@ -293,6 +314,8 @@ static esp_err_t config_post(httpd_req_t *req)
     set_str_field(root, "mqtt_uri", c->mqtt_uri, sizeof(c->mqtt_uri));
     set_str_field(root, "fa_key", c->fa_key, sizeof(c->fa_key));
     set_str_field(root, "watch_regs", c->watch_regs, sizeof(c->watch_regs));
+    set_str_field(root, "webhook_url", c->webhook_url, sizeof(c->webhook_url));
+    set_str_field(root, "local_adsb", c->local_adsb, sizeof(c->local_adsb));
     const cJSON *j;
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "fixed")))) {
         c->use_fixed_loc = cJSON_IsTrue(j);
@@ -302,6 +325,21 @@ static esp_err_t config_post(httpd_req_t *req)
     }
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "airline_only")))) {
         c->hide_private = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "cpa_alerts")))) {
+        c->cpa_alerts = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "night_enabled")))) {
+        c->night_enabled = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "night_start_min")))) {
+        c->night_start_min = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "night_end_min")))) {
+        c->night_end_min = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "ambient_idle_min")))) {
+        c->ambient_idle_min = (int)j->valuedouble;
     }
     if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "lat")))) {
         c->lat = j->valuedouble;
@@ -403,6 +441,49 @@ static esp_err_t ota_post(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t metrics_get(httpd_req_t *req)
+{
+    char *copy = NULL;
+    xSemaphoreTake(s_mux, portMAX_DELAY);
+    if (s_json != NULL) {
+        copy = strdup(s_json);
+    }
+    xSemaphoreGive(s_mux);
+
+    char out[512];
+    int count = 0, unique = 0, alt = 0;
+    double nearest = 0;
+    if (copy != NULL) {
+        cJSON *root = cJSON_Parse(copy);
+        if (root != NULL) {
+            const cJSON *fl = cJSON_GetObjectItem(root, "flights");
+            count = cJSON_IsArray(fl) ? cJSON_GetArraySize(fl) : 0;
+            const cJSON *st = cJSON_GetObjectItem(root, "stats");
+            const cJSON *v;
+            if (st) {
+                if (cJSON_IsNumber((v = cJSON_GetObjectItem(st, "unique_aircraft")))) unique = (int)v->valuedouble;
+                if (cJSON_IsNumber((v = cJSON_GetObjectItem(st, "max_alt_ft")))) alt = (int)v->valuedouble;
+            }
+            const cJSON *first = cJSON_IsArray(fl) ? cJSON_GetArrayItem(fl, 0) : NULL;
+            if (first && cJSON_IsNumber((v = cJSON_GetObjectItem(first, "dist_km")))) nearest = v->valuedouble;
+            cJSON_Delete(root);
+        }
+        free(copy);
+    }
+    snprintf(out, sizeof(out),
+             "esp32flight_aircraft_count %d\n"
+             "esp32flight_unique_aircraft %d\n"
+             "esp32flight_max_alt_ft %d\n"
+             "esp32flight_nearest_km %.1f\n"
+             "esp32flight_heap_free_bytes %u\n"
+             "esp32flight_uptime_seconds %lld\n",
+             count, unique, alt, nearest,
+             (unsigned)esp_get_free_heap_size(),
+             (long long)(esp_timer_get_time() / 1000000LL));
+    httpd_resp_set_type(req, "text/plain; version=0.0.4");
+    return httpd_resp_send(req, out, HTTPD_RESP_USE_STRLEN);
+}
+
 void web_state_publish(const char *json)
 {
     if (s_mux == NULL) {
@@ -445,6 +526,7 @@ void web_server_start(void)
         { .uri = "/api/config", .method = HTTP_POST, .handler = config_post },
         { .uri = "/api/log", .method = HTTP_GET, .handler = log_get },
         { .uri = "/screen.bmp", .method = HTTP_GET, .handler = screen_get },
+        { .uri = "/metrics", .method = HTTP_GET, .handler = metrics_get },
         { .uri = "/ota", .method = HTTP_POST, .handler = ota_post },
     };
     for (size_t i = 0; i < sizeof(uris) / sizeof(uris[0]); i++) {

@@ -10,3 +10,6 @@ void airports_init(void);
 /* Fill iata/city/country/name/coordinates for an ICAO code from the local
  * database. Returns false if the airport is unknown. */
 bool airports_lookup(const char *icao, airport_t *ap);
+
+/* Nearest airport (ICAO) to a point; false when the database is missing. */
+bool airports_nearest(double lat, double lon, char icao_out[5]);

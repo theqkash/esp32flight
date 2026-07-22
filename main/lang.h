@@ -27,6 +27,14 @@ typedef struct {
     const char *search_radius, *theme_lbl, *language_lbl, *save;
     const char *ota_unlock;
     const char *ota_hint;
+    /* spotter */
+    const char *look_fmt;        /* compass, elevation */
+    const char *cpa_fmt;         /* minutes, km */
+    /* settings tabs + new options */
+    const char *tab_net, *tab_place, *tab_filters, *tab_integr, *tab_system;
+    const char *cpa_lbl, *night_lbl, *night_from, *night_to, *amb_idle_lbl;
+    const char *lbl_ntfy, *lbl_mqtt, *lbl_fa, *lbl_watch, *lbl_webhook, *lbl_ladsb;
+    const char *avg_word, *best_word;
     /* stats view */
     const char *stats_title;
     const char *st_hourly;

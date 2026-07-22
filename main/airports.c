@@ -43,6 +43,46 @@ void airports_init(void)
     ESP_LOGI(TAG, "%d airports loaded (%u KB)", lines, (unsigned)(s_len / 1024));
 }
 
+bool airports_nearest(double lat, double lon, char icao_out[5])
+{
+    if (s_db == NULL) {
+        return false;
+    }
+    double best = 1e18;
+    icao_out[0] = '\0';
+    const char *p = s_db;
+    while (p != NULL && *p != '\0') {
+        /* ICAO \t IATA \t CITY \t CC \t LAT \t LON \t NAME */
+        const char *f = p;
+        int tab = 0;
+        const char *lat_s = NULL, *lon_s = NULL;
+        while (*f != '\0' && *f != '\n') {
+            if (*f == '\t') {
+                tab++;
+                if (tab == 4) {
+                    lat_s = f + 1;
+                } else if (tab == 5) {
+                    lon_s = f + 1;
+                }
+            }
+            f++;
+        }
+        if (lat_s != NULL && lon_s != NULL) {
+            double alat = atof(lat_s);
+            double alon = atof(lon_s);
+            double dy = (alat - lat) * 110.57;
+            double dx = (alon - lon) * 111.32 * 0.64; /* rough, fine for ranking */
+            double d2 = dx * dx + dy * dy;
+            if (d2 < best) {
+                best = d2;
+                snprintf(icao_out, 5, "%.4s", p);
+            }
+        }
+        p = *f ? f + 1 : f;
+    }
+    return icao_out[0] != '\0';
+}
+
 bool airports_lookup(const char *icao, airport_t *ap)
 {
     if (s_db == NULL || icao == NULL || strlen(icao) != 4) {

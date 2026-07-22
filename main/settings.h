@@ -21,6 +21,13 @@ typedef struct {
     char   mqtt_uri[96];    /* e.g. mqtt://user:pass@192.168.1.5:1883 */
     char   fa_key[48];      /* FlightAware AeroAPI key (IATA flight numbers) */
     char   watch_regs[96];  /* comma-separated watchlist (regs/callsign prefixes) */
+    char   webhook_url[96]; /* generic JSON webhook for events */
+    char   local_adsb[96];  /* dump1090/readsb aircraft.json URL (LAN receiver) */
+    bool   cpa_alerts;      /* push when an interesting aircraft will pass close */
+    bool   night_enabled;
+    int    night_start_min; /* minutes from midnight, local */
+    int    night_end_min;
+    int    ambient_idle_min;  /* full-screen map screensaver after N idle min, 0=off */
 } settings_t;
 
 /* Load from NVS (menuconfig values as first-boot defaults). Call once at
