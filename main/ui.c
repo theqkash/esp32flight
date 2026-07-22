@@ -102,6 +102,7 @@ static lv_obj_t *s_amb_img;
 static lv_obj_t *s_amb_planes[MAX_SHOWN];
 static lv_obj_t *s_amb_lbls[MAX_SHOWN];
 static lv_obj_t *s_amb_clock, *s_amb_wx;
+static lv_obj_t *s_amb_ring, *s_amb_home;
 static uint16_t *s_amb_tiles;
 static lv_img_dsc_t s_amb_tiles_dsc;
 static tile_view_t s_amb_view;
@@ -1092,6 +1093,21 @@ static void render_ambient(void)
     if (s_amb == NULL) {
         return;
     }
+    /* observation circle: everything outside it is simply not queried */
+    if (s_amb_ring != NULL && s_amb_view_ok && s_home_ok) {
+        lv_coord_t hx, hy, ex, ey;
+        amb_proj(s_home_lat, s_home_lon, &hx, &hy);
+        double rkm = settings_get()->radius_nm * 1.852;
+        amb_proj(s_home_lat + rkm / 111.0, s_home_lon, &ex, &ey);
+        lv_coord_t r = hy - ey;
+        if (r > 10) {
+            lv_obj_set_size(s_amb_ring, r * 2, r * 2);
+            lv_obj_set_pos(s_amb_ring, hx - r, hy - r);
+            lv_obj_clear_flag(s_amb_ring, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(s_amb_home, hx - 4, hy - 4);
+            lv_obj_clear_flag(s_amb_home, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
     for (int i = 0; i < MAX_SHOWN; i++) {
         if (i >= s_shown_count || !s_shown[i].ac.has_pos) {
             lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
@@ -1183,6 +1199,23 @@ static void amb_show(void)
         lv_img_set_src(s_amb_img, fallback);
         lv_obj_set_pos(s_amb_img, 0, 40);
     }
+
+    s_amb_ring = lv_obj_create(s_amb);
+    lv_obj_set_style_bg_opa(s_amb_ring, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_amb_ring, 2, 0);
+    lv_obj_set_style_border_color(s_amb_ring, COL_ACCENT, 0);
+    lv_obj_set_style_border_opa(s_amb_ring, LV_OPA_60, 0);
+    lv_obj_set_style_radius(s_amb_ring, LV_RADIUS_CIRCLE, 0);
+    lv_obj_clear_flag(s_amb_ring, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(s_amb_ring, LV_OBJ_FLAG_HIDDEN);
+
+    s_amb_home = lv_obj_create(s_amb);
+    lv_obj_set_size(s_amb_home, 8, 8);
+    lv_obj_set_style_bg_color(s_amb_home, COL_ACCENT, 0);
+    lv_obj_set_style_border_width(s_amb_home, 0, 0);
+    lv_obj_set_style_radius(s_amb_home, LV_RADIUS_CIRCLE, 0);
+    lv_obj_clear_flag(s_amb_home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(s_amb_home, LV_OBJ_FLAG_HIDDEN);
 
     for (int i = 0; i < MAX_SHOWN; i++) {
         s_amb_planes[i] = plane_img(s_amb);
