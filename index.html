@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>esp32flight - web installer</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+  body{background:#0b0f1a;color:#e8edf5;font-family:system-ui,sans-serif;margin:0;
+       display:flex;flex-direction:column;align-items:center;padding:40px 16px}
+  main{max-width:820px;width:100%}
+  h1{color:#4da3ff;font-size:34px;margin:0}
+  .tag{color:#8794ad;margin:6px 0 26px}
+  p,li{line-height:1.55;color:#c7cfdd}
+  .card{background:#141b2d;border-radius:14px;padding:22px 26px;margin:18px 0}
+  .card h2{margin:0 0 10px;font-size:19px;color:#e8edf5}
+  esp-web-install-button{--esp-tools-button-color:#4da3ff;--esp-tools-button-text-color:#06101f}
+  .btnrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px}
+  .dim{color:#8794ad;font-size:14px}
+  a{color:#4da3ff}
+  img.shot{width:100%;border-radius:12px;margin:8px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  code{background:#1a2338;border-radius:6px;padding:2px 6px}
+</style>
+</head>
+<body>
+<main>
+  <h1>esp32flight</h1>
+  <div class="tag">Standalone flight radar for the Waveshare ESP32-S3-Touch-LCD-7</div>
+
+  <div class="card">
+    <h2>Install from your browser</h2>
+    <p>Connect the board over USB, click Install and pick the serial port.
+       The full firmware (v0.1.0, 16 MB including airline logos and maps)
+       will be written to the device.</p>
+    <div class="btnrow">
+      <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+      <span class="dim">Chrome or Edge on desktop required (Web Serial)</span>
+    </div>
+    <p class="dim">The board uses a CH343 USB-serial chip. If no port shows up,
+       install the <a href="https://www.wch-ic.com/downloads/CH343SER_ZIP.html">WCH driver</a>
+       (Windows) and try again. Flashing takes a few minutes.</p>
+  </div>
+
+  <div class="card">
+    <h2>What you get</h2>
+    <ul>
+      <li>Live aircraft within a configurable radius, with airline logos and types</li>
+      <li>Routes with cities, countries and local airport times, ETA, aircraft photos</li>
+      <li>Route map, radar view and an ambient auto-cycling mode</li>
+      <li>Weather in the header, emergency squawk alerts, 7 color themes, EN/PL UI</li>
+      <li>Web panel with live map, stats and OTA updates at <code>http://esp32flight.local</code></li>
+    </ul>
+  </div>
+
+  <div class="grid">
+    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail-light.png" alt="flight details">
+    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/ambient-mode.png" alt="ambient mode">
+    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/radar.png" alt="radar view">
+    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/route-map.png" alt="route map">
+  </div>
+
+  <div class="card">
+    <h2>First boot</h2>
+    <p>Tap the gear icon, scan and pick your 2.4 GHz Wi-Fi network, type the
+       password on the on-screen keyboard and save. The device locates itself,
+       fetches nearby flights and starts tracking. Later updates can be done
+       over the air from the web panel.</p>
+  </div>
+
+  <p class="dim">
+    <a href="https://github.com/theqkash/esp32flight">Source on GitHub</a> &middot;
+    <a href="https://github.com/theqkash/esp32flight/releases">Releases</a> &middot;
+    MIT &copy; Łukasz Nowak
+  </p>
+</main>
+</body>
+</html>
