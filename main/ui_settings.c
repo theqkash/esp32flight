@@ -31,6 +31,7 @@ static lv_obj_t *s_overlay;
 static lv_obj_t *s_kb;
 static lv_obj_t *s_ta_ssid, *s_ta_pass, *s_ta_city, *s_ta_lat, *s_ta_lon;
 static lv_obj_t *s_ta_watch, *s_ta_ntfy, *s_ta_mqtt, *s_ta_fa, *s_ta_webhook, *s_ta_ladsb;
+static lv_obj_t *s_ta_webpass;
 static lv_obj_t *s_ta_night_from, *s_ta_night_to, *s_ta_amb_idle;
 static lv_obj_t *s_dd_networks, *s_dd_cities, *s_dd_theme, *s_dd_lang;
 static lv_obj_t *s_sw_auto, *s_sw_ground, *s_sw_private, *s_sw_cpa, *s_sw_night;
@@ -266,6 +267,7 @@ static void save_cb(lv_event_t *e)
     strlcpy(cfg->fa_key, lv_textarea_get_text(s_ta_fa), sizeof(cfg->fa_key));
     strlcpy(cfg->webhook_url, lv_textarea_get_text(s_ta_webhook), sizeof(cfg->webhook_url));
     strlcpy(cfg->local_adsb, lv_textarea_get_text(s_ta_ladsb), sizeof(cfg->local_adsb));
+    strlcpy(cfg->web_pass, lv_textarea_get_text(s_ta_webpass), sizeof(cfg->web_pass));
     cfg->theme = lv_dropdown_get_selected(s_dd_theme);
     cfg->lang = lv_dropdown_get_selected(s_dd_lang);
     settings_save();
@@ -500,6 +502,9 @@ void ui_settings_open(void)
     s_dd_lang = add_dropdown(p, 220, 24, 180, NULL);
     lv_dropdown_set_options(s_dd_lang, "English\nPolski");
     lv_dropdown_set_selected(s_dd_lang, cfg->lang == 1 ? 1 : 0);
+
+    add_label(p, L()->lbl_webpass, 440, 0);
+    s_ta_webpass = add_textarea(p, 440, 24, 300, cfg->web_pass, false);
 
     lv_obj_t *sw_ota = add_switch(p, L()->ota_unlock, 0, 92, cfg->ota_enabled);
     lv_obj_add_event_cb(sw_ota, ota_unlock_cb, LV_EVENT_VALUE_CHANGED, NULL);

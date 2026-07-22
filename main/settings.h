@@ -23,6 +23,7 @@ typedef struct {
     char   watch_regs[96];  /* comma-separated watchlist (regs/callsign prefixes) */
     char   webhook_url[96]; /* generic JSON webhook for events */
     char   local_adsb[96];  /* dump1090/readsb aircraft.json URL (LAN receiver) */
+    char   web_pass[33];    /* HTTP Basic Auth for the web panel, empty = open */
     bool   cpa_alerts;      /* push when an interesting aircraft will pass close */
     bool   night_enabled;
     int    night_start_min; /* minutes from midnight, local */

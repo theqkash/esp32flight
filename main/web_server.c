@@ -9,6 +9,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+#include "mbedtls/base64.h"
 #include "esp_timer.h"
 #include "esp_system.h"
 #include "mdns.h"
@@ -20,6 +21,41 @@
 #include "waveshare_rgb_lcd_port.h"
 
 static const char *TAG = "web";
+
+/* HTTP Basic Auth against the panel password (user "admin"). Empty
+ * password in settings means the panel and API are open. */
+static bool auth_ok(httpd_req_t *req)
+{
+    const char *pw = settings_get()->web_pass;
+    if (pw[0] == '\0') {
+        return true;
+    }
+    char hdr[128] = "";
+    if (httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)) != ESP_OK) {
+        return false;
+    }
+    char cred[100];
+    int n = snprintf(cred, sizeof(cred), "admin:%s", pw);
+    unsigned char b64[140];
+    size_t olen = 0;
+    if (n <= 0 || mbedtls_base64_encode(b64, sizeof(b64), &olen,
+                                        (const unsigned char *)cred, n) != 0) {
+        return false;
+    }
+    char expect[160];
+    snprintf(expect, sizeof(expect), "Basic %.*s", (int)olen, b64);
+    return strcmp(hdr, expect) == 0;
+}
+
+static esp_err_t require_auth(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "401 Unauthorized");
+    httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"esp32flight\"");
+    return httpd_resp_sendstr(req, "auth required");
+}
+
+#define AUTH_GUARD(req) do { if (!auth_ok(req)) return require_auth(req); } while (0)
+
 
 static char *s_json;
 static SemaphoreHandle_t s_mux;
@@ -58,13 +94,30 @@ static const char INDEX_HTML[] =
 "tr.gold td b{color:#ffd166}"
 ".sech{grid-column:1/-1;color:#4da3ff;font-size:12px;font-weight:700;margin-top:10px;text-transform:uppercase;letter-spacing:.6px}"
 ".help{font-size:12px;color:#66738c;margin-top:3px;line-height:1.4}"
+".tabs{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}"
+".tab{background:#141b2d;color:#8794ad;font-weight:600}"
+".tab.on{background:#4da3ff;color:#06101f}"
+".tabpane{display:none}.tabpane.on{display:block}"
+".api dt{color:#4da3ff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:14px;margin-top:16px}"
+".api dd{margin:4px 0 0;color:#8794ad;font-size:13px;line-height:1.5}"
+"code{background:#141b2d;border-radius:6px;padding:1px 5px;font-size:12px;color:#c7cfdd}"
+"pre{background:#141b2d;border-radius:8px;padding:8px 10px;overflow-x:auto;font-size:12px;color:#c7cfdd}"
 "</style></head><body>"
 "<h1>esp32flight</h1><div class='dim' id='hdr'>loading...</div>"
+"<div class='tabs'>"
+"<button class='tab on' id='tb_live' onclick=\"showTab('live')\">Live</button>"
+"<button class='tab' id='tb_hist' onclick=\"showTab('hist')\">History</button>"
+"<button class='tab' id='tb_set' onclick=\"showTab('set')\">Settings</button>"
+"<button class='tab' id='tb_api' onclick=\"showTab('api')\">API</button>"
+"</div>"
+"<div id='t_live' class='tabpane on'>"
 "<div class='cards' id='cards'></div>"
 "<div id='map'></div>"
 "<table><thead><tr><th>Flight</th><th>Airline</th><th>Aircraft</th><th>Route</th>"
 "<th>Progress</th><th>Alt</th><th>Speed</th><th>Dist</th></tr></thead>"
 "<tbody id='rows'></tbody></table>"
+"</div>"
+"<div id='t_set' class='tabpane'>"
 "<div id='ota'><span class='dim'>Firmware update (.bin): </span>"
 "<input type='file' id='fw'> <button id='otabtn' onclick='ota()' disabled>Flash</button> <span id='otastat' class='dim'></span>"
 "<div class='dim' style='margin-top:8px'>"
@@ -76,6 +129,8 @@ static const char INDEX_HTML[] =
 "<div class='help'>2.4 GHz networks only (ESP32 has no 5 GHz radio).</div></div>"
 "<div><label>Wi-Fi password</label><input id='c_pass' type='password'>"
 "<div class='help'>Leave empty to keep the current password.</div></div>"
+"<div><label>Panel password</label><input id='c_web_pass' type='password' placeholder='empty = keep current'>"
+"<div class='help'>Protects this panel and the whole API (HTTP Basic Auth, user: admin). Leave empty to keep the current one. To remove the password, clear the field in the on-device settings, System tab.</div></div>"
 "<div class='sech'>Location and filters</div>"
 "<div><label>Location mode</label><select id='c_fixed'><option value='0'>auto (IP geolocation)</option><option value='1'>fixed coordinates</option></select>"
 "<div class='help'>Auto locates the device by its internet address at boot. Pick fixed to watch a different area.</div></div>"
@@ -113,11 +168,43 @@ static const char INDEX_HTML[] =
 "<div><label>Local ADS-B receiver (dump1090/readsb)</label><input id='c_local_adsb' placeholder='http://192.168.1.50:8080/data/aircraft.json'>"
 "<div class='help'>If you run your own receiver (e.g. RTL-SDR on a Raspberry Pi), point this at its aircraft.json. The device then uses your antenna instead of internet APIs: faster updates, no limits, works without the cloud. Falls back to the internet automatically when unreachable.</div></div>"
 "</div><div style='margin-top:14px'><button id='cfgsave' onclick='saveCfg()' disabled>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
+"</div>"
+"<div id='t_hist' class='tabpane'>"
 "<div class='sect'><h3>Spotting history</h3>"
 "<input id='hq' placeholder='filter (callsign, type...)'> <button onclick='loadHist()'>Load</button>"
 "<table><tbody id='hrows'></tbody></table></div>"
+"</div>"
+"<div id='t_api' class='tabpane'>"
+"<div class='sect api'><h3>HTTP API</h3>"
+"<p class='dim'>Base URL: <code>http://esp32flight.local</code> (or the device IP). When a panel password is set, every endpoint requires HTTP Basic Auth with user <code>admin</code>: <code>curl -u admin:PASSWORD ...</code></p>"
+"<dl>"
+"<dt>GET /api/state</dt>"
+"<dd>Live state JSON, refreshed with every poll cycle (about 8 s). Fields: <code>flights[]</code> with hex, callsign, reg, cc (country), type, airline, flight_iata, lat, lon, alt_ft, gs_kt, track, dist_km, squawk, interesting, trail (list of [lat,lon]) and route {from, to, from_lat, from_lon, to_lat, to_lon, progress}; plus <code>weather</code>, <code>net</code> (ssid, rssi, ip, mdns), <code>stats</code> (unique_aircraft, max_alt_ft, hours[], top_airlines[], days[], metar, version) and the live <code>ota_enabled</code> flag."
+"<pre>curl http://esp32flight.local/api/state | jq '.flights[0]'</pre></dd>"
+"<dt>GET /api/config</dt>"
+"<dd>Current settings as JSON. Passwords are never returned; <code>web_pass_set</code> only tells whether one is active.</dd>"
+"<dt>POST /api/config</dt>"
+"<dd>JSON body with any subset of the config fields; omitted fields keep their value. The device saves to flash and restarts. Field names match the GET response, plus write-only <code>pass</code> (Wi-Fi) and <code>web_pass</code> (panel)."
+"<pre>curl -X POST http://esp32flight.local/api/config -d '{\"radius_nm\":80,\"theme\":3}'</pre></dd>"
+"<dt>GET /api/log</dt>"
+"<dd>Spotting history, one aircraft per line, tab-separated: unix epoch, ICAO hex, callsign, type, airline. Rotates at about 256 KB (current + previous file are concatenated).</dd>"
+"<dt>GET /screen.bmp</dt>"
+"<dd>Live screenshot of the display as an 800x480 BMP.</dd>"
+"<dt>GET /metrics</dt>"
+"<dd>Prometheus text format: <code>esp32flight_aircraft_count</code>, <code>esp32flight_unique_aircraft</code>, <code>esp32flight_max_alt_ft</code>, <code>esp32flight_nearest_km</code>, <code>esp32flight_heap_free_bytes</code>, <code>esp32flight_uptime_seconds</code>.</dd>"
+"<dt>POST /ota</dt>"
+"<dd>Firmware update: send the raw OTA .bin as the request body. Returns 403 unless updates are unlocked in the on-device settings (System tab; the switch re-locks on every restart)."
+"<pre>curl --data-binary @esp32flight-ota.bin http://esp32flight.local/ota</pre></dd>"
+"<dt>Webhook payload</dt>"
+"<dd>On every alert (emergency squawk, watchlist, flyover) the device POSTs to your webhook URL: <code>{\"source\":\"esp32flight\",\"title\":\"...\",\"message\":\"...\"}</code></dd>"
+"</dl></div>"
+"</div>"
 "<script>"
 "let map,layer,homeSet=false,routeLine=null,selHex=null;"
+"function showTab(n){['live','hist','set','api'].forEach(k=>{"
+"document.getElementById('t_'+k).classList.toggle('on',k===n);"
+"document.getElementById('tb_'+k).classList.toggle('on',k===n);});"
+"if(n==='live'&&map)setTimeout(()=>map.invalidateSize(),50);}"
 "function ensureMap(lat,lon,rkm){if(map||typeof L==='undefined')return;"
 "map=L.map('map').setView([lat,lon],8);"
 "L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',"
@@ -174,7 +261,7 @@ static const char INDEX_HTML[] =
 "document.getElementById('c_night_end').value=mm(c.night_end_min||390);"
 "document.getElementById('cfgsave').disabled=false;}catch(e){}}"
 "async function saveCfg(){const c={};"
-"['ssid','pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb'].forEach(k=>{const v=document.getElementById('c_'+k).value;if(k!=='pass'||v)c[k]=v;});"
+"['ssid','pass','web_pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb'].forEach(k=>{const v=document.getElementById('c_'+k).value;if((k!=='pass'&&k!=='web_pass')||v)c[k]=v;});"
 "c.cpa_alerts=document.getElementById('c_cpa_alerts').value==='1';"
 "c.night_enabled=document.getElementById('c_night_enabled').value==='1';"
 "c.ambient_idle_min=+document.getElementById('c_ambient_idle_min').value;"
@@ -205,6 +292,7 @@ static const char INDEX_HTML[] =
 /* Screenshot: RGB565 framebuffer as a 16bpp BI_BITFIELDS BMP (top-down) */
 static esp_err_t screen_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     const int W = 800, H = 480;
     const uint32_t data_size = W * H * 2;
     uint8_t *fb = waveshare_lcd_get_fb();
@@ -254,12 +342,14 @@ static esp_err_t screen_get(httpd_req_t *req)
 
 static esp_err_t root_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, INDEX_HTML, HTTPD_RESP_USE_STRLEN);
 }
 
 static esp_err_t api_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     char *copy = NULL;
     size_t len = 0;
     xSemaphoreTake(s_mux, portMAX_DELAY);
@@ -288,6 +378,7 @@ static esp_err_t api_get(httpd_req_t *req)
 
 static esp_err_t config_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     const settings_t *c = settings_get();
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "ssid", c->wifi_ssid);
@@ -305,6 +396,7 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddStringToObject(root, "watch_regs", c->watch_regs);
     cJSON_AddStringToObject(root, "webhook_url", c->webhook_url);
     cJSON_AddStringToObject(root, "local_adsb", c->local_adsb);
+    cJSON_AddBoolToObject(root, "web_pass_set", c->web_pass[0] != '\0');
     cJSON_AddBoolToObject(root, "cpa_alerts", c->cpa_alerts);
     cJSON_AddBoolToObject(root, "night_enabled", c->night_enabled);
     cJSON_AddNumberToObject(root, "night_start_min", c->night_start_min);
@@ -328,6 +420,7 @@ static void set_str_field(const cJSON *root, const char *key, char *dst, size_t 
 
 static esp_err_t config_post(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     char body[1024];
     int len = httpd_req_recv(req, body, sizeof(body) - 1);
     if (len <= 0) {
@@ -348,6 +441,7 @@ static esp_err_t config_post(httpd_req_t *req)
     set_str_field(root, "watch_regs", c->watch_regs, sizeof(c->watch_regs));
     set_str_field(root, "webhook_url", c->webhook_url, sizeof(c->webhook_url));
     set_str_field(root, "local_adsb", c->local_adsb, sizeof(c->local_adsb));
+    set_str_field(root, "web_pass", c->web_pass, sizeof(c->web_pass));
     const cJSON *j;
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "fixed")))) {
         c->use_fixed_loc = cJSON_IsTrue(j);
@@ -403,6 +497,7 @@ static esp_err_t config_post(httpd_req_t *req)
 
 static esp_err_t log_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
     const char *paths[2] = { OBSLOG_OLD_PATH, OBSLOG_PATH };
     char buf[1024];
@@ -427,6 +522,7 @@ static esp_err_t log_get(httpd_req_t *req)
 
 static esp_err_t ota_post(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     if (!settings_get()->ota_enabled) {
         ESP_LOGW(TAG, "OTA rejected: updates locked");
         return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN,
@@ -475,6 +571,7 @@ static esp_err_t ota_post(httpd_req_t *req)
 
 static esp_err_t metrics_get(httpd_req_t *req)
 {
+    AUTH_GUARD(req);
     char *copy = NULL;
     xSemaphoreTake(s_mux, portMAX_DELAY);
     if (s_json != NULL) {

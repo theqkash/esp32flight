@@ -93,6 +93,7 @@ void settings_load(void)
     get_str(h, "watch", s_settings.watch_regs, sizeof(s_settings.watch_regs));
     get_str(h, "webhook", s_settings.webhook_url, sizeof(s_settings.webhook_url));
     get_str(h, "ladsb", s_settings.local_adsb, sizeof(s_settings.local_adsb));
+    get_str(h, "webpass", s_settings.web_pass, sizeof(s_settings.web_pass));
     uint8_t b8 = 0;
     if (nvs_get_u8(h, "cpa", &b8) == ESP_OK) {
         s_settings.cpa_alerts = b8 != 0;
@@ -142,6 +143,7 @@ esp_err_t settings_save(void)
     nvs_set_str(h, "watch", s_settings.watch_regs);
     nvs_set_str(h, "webhook", s_settings.webhook_url);
     nvs_set_str(h, "ladsb", s_settings.local_adsb);
+    nvs_set_str(h, "webpass", s_settings.web_pass);
     nvs_set_u8(h, "cpa", s_settings.cpa_alerts ? 1 : 0);
     nvs_set_u8(h, "night", s_settings.night_enabled ? 1 : 0);
     nvs_set_i32(h, "night_s", s_settings.night_start_min);

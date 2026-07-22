@@ -112,6 +112,27 @@ aircraft straight from your antenna instead of internet APIs: faster
 updates, no rate limits, works even without internet. When the receiver
 is unreachable it falls back to the internet sources automatically.
 
+## HTTP API
+
+Everything the web panel shows is available as plain HTTP on port 80
+(`http://esp32flight.local` or the device IP). The full reference with
+examples lives in the panel itself, under the **API** tab. Summary:
+
+| Endpoint | What it returns |
+|---|---|
+| `GET /api/state` | live JSON: flights with routes and trails, weather, network, stats |
+| `GET /api/config` | current settings (passwords never included) |
+| `POST /api/config` | update any subset of settings, saves and restarts |
+| `GET /api/log` | spotting history TSV (epoch, hex, callsign, type, airline) |
+| `GET /screen.bmp` | live 800x480 screenshot of the display |
+| `GET /metrics` | Prometheus metrics |
+| `POST /ota` | firmware update (403 unless unlocked on the device) |
+
+The panel and the whole API can be protected with a password (HTTP Basic
+Auth, user `admin`), set in the web settings or on the device (System tab).
+An empty password, the default, leaves the panel open - fine for a home
+network. `curl -u admin:PASSWORD ...` once it is set.
+
 ## Data sources (all free, no API keys)
 
 | What | Source |
