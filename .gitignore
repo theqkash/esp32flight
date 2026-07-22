@@ -7,3 +7,4 @@ backup/
 # generated assets (see tools/fetch_logos.sh)
 assets/logos/*.png
 assets/map/*.png
+assets/airports.tsv

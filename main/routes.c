@@ -5,6 +5,7 @@
 #include <string.h>
 #include "cJSON.h"
 #include "esp_log.h"
+#include "airports.h"
 #include "geo_math.h"
 #include "http_util.h"
 #include "tz.h"
@@ -92,6 +93,32 @@ static void fix_city(airport_t *ap)
     }
 }
 
+/* Prefer the local OurAirports data (consistent city names with proper
+ * diacritics) over whatever the route API returned. */
+static void enrich_from_local_db(airport_t *ap)
+{
+    airport_t local = { 0 };
+    if (!airports_lookup(ap->icao, &local)) {
+        return;
+    }
+    if (local.iata[0]) {
+        strlcpy(ap->iata, local.iata, sizeof(ap->iata));
+    }
+    if (local.city[0]) {
+        strlcpy(ap->city, local.city, sizeof(ap->city));
+    }
+    if (local.country[0]) {
+        strlcpy(ap->country, local.country, sizeof(ap->country));
+    }
+    if (local.name[0]) {
+        strlcpy(ap->name, local.name, sizeof(ap->name));
+    }
+    if (local.lat != 0 || local.lon != 0) {
+        ap->lat = local.lat;
+        ap->lon = local.lon;
+    }
+}
+
 static void parse_airport(const cJSON *j, airport_t *ap)
 {
     const cJSON *f;
@@ -118,6 +145,7 @@ static void parse_airport(const cJSON *j, airport_t *ap)
     if ((f = cJSON_GetObjectItem(j, "longitude")) && cJSON_IsNumber(f)) {
         ap->lon = f->valuedouble;
     }
+    enrich_from_local_db(ap);
     fix_city(ap);
 }
 
@@ -125,6 +153,12 @@ static void parse_airport(const cJSON *j, airport_t *ap)
  * but the UI derives the logo from the callsign prefix anyway. */
 static bool hexdb_airport(char *buf, const char *icao, airport_t *ap)
 {
+    /* Local database first; the HTTP lookup is only a fallback */
+    if (airports_lookup(icao, ap) && ap->iata[0] && (ap->lat != 0 || ap->lon != 0)) {
+        fix_city(ap);
+        return true;
+    }
+
     char url[80];
     snprintf(url, sizeof(url), "https://hexdb.io/api/v1/airport/icao/%s", icao);
     if (http_get_to_buffer(url, buf, 4096, NULL) != ESP_OK) {
@@ -159,6 +193,7 @@ static bool hexdb_airport(char *buf, const char *icao, airport_t *ap)
         ok = false;
     }
     cJSON_Delete(root);
+    enrich_from_local_db(ap);
     fix_city(ap);
     return ok && ap->iata[0] != '\0';
 }

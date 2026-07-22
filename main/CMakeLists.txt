@@ -11,6 +11,7 @@ idf_component_register(
         "routes.c"
         "logos.c"
         "airlines.c"
+        "airports.c"
         "flight_task.c"
         "geocode.c"
         "lang.c"

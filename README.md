@@ -51,6 +51,7 @@ Web panel with live map, stats and OTA:
 | IP geolocation | [ip-api.com](https://ip-api.com) |
 | Aircraft photos | [planespotters.net](https://www.planespotters.net) via adsbdb |
 | Airline logos | [sexym0nk3y/airline-logos](https://github.com/sexym0nk3y/airline-logos), [Jxck-S/airline-logos](https://github.com/Jxck-S/airline-logos) |
+| Airport database | [OurAirports](https://ourairports.com) (bundled, public domain) |
 | World map | NASA Blue Marble |
 
 Routes resolved from callsigns are **position-validated** (great-circle
@@ -69,6 +70,7 @@ Requires ESP-IDF ≥ 5.5, ImageMagick and Node (for asset generation).
 ```sh
 # one-time: fetch airline logos + generate fonts (Latin Ext A/B + icons)
 ./tools/fetch_logos.sh
+./tools/fetch_airports.sh
 ./tools/gen_fonts.sh
 
 idf.py set-target esp32s3

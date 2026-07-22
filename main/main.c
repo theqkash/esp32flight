@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "waveshare_rgb_lcd_port.h"
 
+#include "airports.h"
 #include "flight_task.h"
 #include "logos.h"
 #include "settings.h"
@@ -30,6 +31,7 @@ void app_main(void)
     waveshare_rgb_lcd_bl_on();
 
     logos_init();
+    airports_init();
 
     if (lvgl_port_lock(-1)) {
         ui_init();
