@@ -19,6 +19,9 @@ void ui_set_status_alert(bool alert);
 /* Highlight the gear icon when a newer release is on GitHub. */
 void ui_set_update_available(bool available);
 
+/* Home coordinates (after geolocation) - used by the radar map view. */
+void ui_set_home(double lat, double lon);
+
 /* Replace displayed flight data. Routes are looked up via routes_get_cached
  * and snapshotted, so later touch interactions don't race the network task. */
 void ui_update(const aircraft_list_t *list);

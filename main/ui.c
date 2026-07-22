@@ -105,9 +105,33 @@ static lv_obj_t *s_radar_panel;
 static lv_obj_t *s_radar_dots[MAX_SHOWN];
 static lv_obj_t *s_radar_info;
 static lv_obj_t *s_radar_range;
+static lv_obj_t *s_radar_img;
+static lv_obj_t *s_radar_rings[3];
+static lv_obj_t *s_radar_home;
 #define RADAR_CX 245
 #define RADAR_CY 210
 #define RADAR_R  185
+#define RADAR_W  (800 - LIST_W)
+#define RADAR_H  (480 - HEADER_H)
+
+/* Radar map background (home-area tiles) */
+static uint16_t     *s_radar_tiles;
+static lv_img_dsc_t  s_radar_tiles_dsc;
+static tile_view_t   s_radar_view;
+static bool          s_radar_view_ok;
+static volatile bool s_radar_busy;
+static char          s_radar_key[48];
+static char          s_radar_want[48];
+static double        s_radar_bbox[4];
+static double        s_home_lat, s_home_lon;
+static bool          s_home_ok;
+
+void ui_set_home(double lat, double lon)
+{
+    s_home_lat = lat;
+    s_home_lon = lon;
+    s_home_ok = true;
+}
 
 /* Detail widgets */
 static lv_obj_t *s_logo_img;
@@ -762,6 +786,67 @@ static void render_map_panel(void)
     }
 }
 
+static void radar_tiles_task(void *arg)
+{
+    char key[48];
+    double b[4];
+    strlcpy(key, s_radar_want, sizeof(key));
+    memcpy(b, s_radar_bbox, sizeof(b));
+
+    if (s_radar_tiles == NULL) {
+        s_radar_tiles = heap_caps_malloc(RADAR_W * RADAR_H * 2, MALLOC_CAP_SPIRAM);
+    }
+    tile_view_t view;
+    bool ok = s_radar_tiles != NULL &&
+              tilemap_render(s_radar_tiles, RADAR_W, RADAR_H,
+                             b[0], b[1], b[2], b[3], &view);
+
+    if (lvgl_port_lock(-1)) {
+        if (ok && strcmp(key, s_radar_want) == 0) {
+            s_radar_view = view;
+            s_radar_view_ok = true;
+            strlcpy(s_radar_key, key, sizeof(s_radar_key));
+            s_radar_tiles_dsc.header.always_zero = 0;
+            s_radar_tiles_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+            s_radar_tiles_dsc.header.w = RADAR_W;
+            s_radar_tiles_dsc.header.h = RADAR_H;
+            s_radar_tiles_dsc.data = (const uint8_t *)s_radar_tiles;
+            s_radar_tiles_dsc.data_size = RADAR_W * RADAR_H * 2;
+            lv_img_set_src(s_radar_img, &s_radar_tiles_dsc);
+            lv_obj_invalidate(s_radar_img);
+            if (s_view_mode == VIEW_RADAR) {
+                render_radar_panel();
+            }
+        }
+        lvgl_port_unlock();
+    }
+    s_radar_busy = false;
+    vTaskDelete(NULL);
+}
+
+static void radar_tiles_want(void)
+{
+    if (!s_home_ok || s_radar_busy) {
+        return;
+    }
+    int radius_nm = settings_get()->radius_nm;
+    char key[48];
+    snprintf(key, sizeof(key), "%.3f,%.3f,%d", s_home_lat, s_home_lon, radius_nm);
+    if (strcmp(key, s_radar_key) == 0) {
+        return;
+    }
+    double rkm = radius_nm * 1.852;
+    double dlat = rkm / 111.0;
+    double dlon = rkm / (111.0 * cos(s_home_lat * M_PI / 180.0));
+    s_radar_bbox[0] = s_home_lat - dlat;
+    s_radar_bbox[1] = s_home_lat + dlat;
+    s_radar_bbox[2] = s_home_lon - dlon;
+    s_radar_bbox[3] = s_home_lon + dlon;
+    strlcpy(s_radar_want, key, sizeof(s_radar_want));
+    s_radar_busy = true;
+    xTaskCreatePinnedToCore(radar_tiles_task, "radar_tiles", 12288, NULL, 3, NULL, 0);
+}
+
 static void build_radar_panel(lv_obj_t *scr)
 {
     s_radar_panel = make_panel(scr);
@@ -769,6 +854,11 @@ static void build_radar_panel(lv_obj_t *scr)
     lv_obj_set_pos(s_radar_panel, LIST_W, HEADER_H);
     lv_obj_set_style_bg_color(s_radar_panel, COL_BG, 0);
     lv_obj_add_flag(s_radar_panel, LV_OBJ_FLAG_HIDDEN);
+
+    /* home-area tile map in the background (falls back to plain rings) */
+    s_radar_img = lv_img_create(s_radar_panel);
+    lv_obj_set_pos(s_radar_img, 0, 0);
+    lv_obj_add_flag(s_radar_img, LV_OBJ_FLAG_HIDDEN);
 
     for (int i = 1; i <= 3; i++) {
         int r = RADAR_R * i / 3;
@@ -780,6 +870,7 @@ static void build_radar_panel(lv_obj_t *scr)
         lv_obj_set_style_border_width(ring, 1, 0);
         lv_obj_set_style_border_color(ring, COL_ROW_SEL, 0);
         lv_obj_clear_flag(ring, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+        s_radar_rings[i - 1] = ring;
     }
 
     lv_obj_t *home = lv_obj_create(s_radar_panel);
@@ -789,6 +880,7 @@ static void build_radar_panel(lv_obj_t *scr)
     lv_obj_set_style_bg_color(home, COL_ACCENT, 0);
     lv_obj_set_style_border_width(home, 0, 0);
     lv_obj_clear_flag(home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    s_radar_home = home;
 
     for (int i = 0; i < MAX_SHOWN; i++) {
         s_radar_dots[i] = plane_img(s_radar_panel);
@@ -808,8 +900,41 @@ static void build_radar_panel(lv_obj_t *scr)
 
 static void render_radar_panel(void)
 {
+    radar_tiles_want();
+
     int radius_nm = settings_get()->radius_nm;
-    lv_label_set_text_fmt(s_radar_range, L()->ring_fmt, (int)(radius_nm * 1.852 / 3));
+    bool map_mode = s_radar_view_ok;
+    int hx = RADAR_CX, hy = RADAR_CY;
+    int rpx = RADAR_R;
+
+    if (map_mode) {
+        tilemap_project(&s_radar_view, s_home_lat, s_home_lon, &hx, &hy);
+        int ex, ey;
+        tilemap_project(&s_radar_view, s_home_lat, s_radar_bbox[3], &ex, &ey);
+        rpx = ex - hx;
+        if (rpx < 20) {
+            rpx = 20;
+        }
+        lv_obj_clear_flag(s_radar_img, LV_OBJ_FLAG_HIDDEN);
+        /* single range ring on the map */
+        lv_obj_clear_flag(s_radar_rings[2], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_size(s_radar_rings[2], rpx * 2, rpx * 2);
+        lv_obj_set_pos(s_radar_rings[2], hx - rpx, hy - rpx);
+        lv_obj_add_flag(s_radar_rings[0], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_radar_rings[1], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(s_radar_home, hx - 5, hy - 5);
+        lv_label_set_text_fmt(s_radar_range, "%d km", (int)(radius_nm * 1.852));
+    } else {
+        lv_obj_add_flag(s_radar_img, LV_OBJ_FLAG_HIDDEN);
+        for (int i = 0; i < 3; i++) {
+            int r = RADAR_R * (i + 1) / 3;
+            lv_obj_clear_flag(s_radar_rings[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_size(s_radar_rings[i], r * 2, r * 2);
+            lv_obj_set_pos(s_radar_rings[i], RADAR_CX - r, RADAR_CY - r);
+        }
+        lv_obj_set_pos(s_radar_home, RADAR_CX - 5, RADAR_CY - 5);
+        lv_label_set_text_fmt(s_radar_range, L()->ring_fmt, (int)(radius_nm * 1.852 / 3));
+    }
 
     for (int i = 0; i < MAX_SHOWN; i++) {
         if (i >= s_shown_count || s_shown[i].ac.dist_nm < 0) {
@@ -817,13 +942,22 @@ static void render_radar_panel(void)
             continue;
         }
         const aircraft_t *ac = &s_shown[i].ac;
-        float frac = ac->dist_nm / (float)radius_nm;
-        if (frac > 1.0f) {
-            frac = 1.0f;
+        int x, y;
+        if (map_mode && ac->has_pos) {
+            tilemap_project(&s_radar_view, ac->lat, ac->lon, &x, &y);
+            if (x < -14 || x > RADAR_W + 14 || y < -14 || y > RADAR_H + 14) {
+                lv_obj_add_flag(s_radar_dots[i], LV_OBJ_FLAG_HIDDEN);
+                continue;
+            }
+        } else {
+            float frac = ac->dist_nm / (float)radius_nm;
+            if (frac > 1.0f) {
+                frac = 1.0f;
+            }
+            float rad = ac->dir_deg * (float)M_PI / 180.0f;
+            x = RADAR_CX + (int)(sinf(rad) * frac * RADAR_R);
+            y = RADAR_CY - (int)(cosf(rad) * frac * RADAR_R);
         }
-        float rad = ac->dir_deg * (float)M_PI / 180.0f;
-        int x = RADAR_CX + (int)(sinf(rad) * frac * RADAR_R);
-        int y = RADAR_CY - (int)(cosf(rad) * frac * RADAR_R);
         lv_obj_set_pos(s_radar_dots[i], x - 14, y - 14);
         lv_img_set_angle(s_radar_dots[i], (int)(ac->track_deg * 10));
         lv_img_set_zoom(s_radar_dots[i], i == s_selected ? 384 : 232);

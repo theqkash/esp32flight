@@ -408,6 +408,10 @@ static void flight_task(void *arg)
     if (tz_offset_for("HOME", lat, lon, &home_off)) {
         tz_set_home_offset(home_off);
     }
+    if (lvgl_port_lock(1000)) {
+        ui_set_home(lat, lon);
+        lvgl_port_unlock();
+    }
 
     mqtt_pub_start();
 
