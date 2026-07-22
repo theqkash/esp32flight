@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#define MAX_AIRCRAFT      40
+#define MAX_AIRCRAFT      80
 #define CALLSIGN_LEN      9    /* 8 chars + NUL */
 #define ICAO_HEX_LEN      7
 #define REG_LEN           12

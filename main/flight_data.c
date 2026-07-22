@@ -14,7 +14,7 @@
 
 static const char *TAG = "flights";
 
-#define FETCH_BUF_SIZE (128 * 1024)
+#define FETCH_BUF_SIZE (256 * 1024)
 
 bool flight_is_airline(const aircraft_t *ac)
 {
@@ -149,7 +149,8 @@ static int cmp_by_dist(const void *a, const void *b)
     return (da > db) - (da < db);
 }
 
-static esp_err_t parse_point_response(const char *json, aircraft_list_t *out)
+static esp_err_t parse_point_response(const char *json, double lat, double lon,
+                                       aircraft_list_t *out)
 {
     cJSON *root = cJSON_Parse(json);
     if (root == NULL) {
@@ -165,21 +166,50 @@ static esp_err_t parse_point_response(const char *json, aircraft_list_t *out)
         return ESP_ERR_INVALID_RESPONSE;
     }
 
+    /* Busy areas return far more targets than we can keep. Keep the
+     * NEAREST ones, not the first ones in response order, and do not
+     * waste slots on traffic the active filters would drop anyway. */
+    const settings_t *st = settings_get();
     out->count = 0;
+    int total = 0;
     const cJSON *jac;
     cJSON_ArrayForEach(jac, jlist) {
-        if (out->count >= MAX_AIRCRAFT) {
-            break;
-        }
-        aircraft_t *ac = &out->ac[out->count];
-        parse_aircraft(jac, ac);
+        aircraft_t tmp;
+        parse_aircraft(jac, &tmp);
         /* Skip targets without position: nothing to show or compute. */
-        if (ac->has_pos) {
-            out->count++;
+        if (!tmp.has_pos) {
+            continue;
+        }
+        if (tmp.dist_nm < 0) {
+            tmp.dist_nm = (float)(geo_haversine_km(lat, lon, tmp.lat, tmp.lon) / 1.852);
+            tmp.dir_deg = (float)geo_bearing_deg(lat, lon, tmp.lat, tmp.lon);
+        }
+        total++;
+        if (st->hide_ground && tmp.on_ground) {
+            continue;
+        }
+        if (st->hide_private && !flight_is_airline(&tmp)) {
+            continue;
+        }
+        if (out->count < MAX_AIRCRAFT) {
+            out->ac[out->count++] = tmp;
+        } else {
+            int far = 0;
+            for (int i = 1; i < out->count; i++) {
+                if (out->ac[i].dist_nm > out->ac[far].dist_nm) {
+                    far = i;
+                }
+            }
+            if (tmp.dist_nm < out->ac[far].dist_nm) {
+                out->ac[far] = tmp;
+            }
         }
     }
     cJSON_Delete(root);
 
+    if (total > MAX_AIRCRAFT) {
+        ESP_LOGI(TAG, "%d aircraft in the area, keeping the nearest %d", total, out->count);
+    }
     qsort(out->ac, out->count, sizeof(aircraft_t), cmp_by_dist);
     out->fetched_at_ms = esp_timer_get_time() / 1000;
     return ESP_OK;
@@ -215,7 +245,7 @@ esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_li
     if (local[0] != '\0') {
         esp_err_t lerr = http_get_to_buffer(local, buf, FETCH_BUF_SIZE, NULL);
         if (lerr == ESP_OK) {
-            lerr = parse_point_response(buf, out);
+            lerr = parse_point_response(buf, lat, lon, out);
         }
         if (lerr == ESP_OK) {
             localize_and_filter(out, lat, lon, radius_nm);
@@ -237,7 +267,7 @@ esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_li
         snprintf(url, sizeof(url), "%s/%.4f/%.4f/%d", bases[i], lat, lon, radius_nm);
         err = http_get_to_buffer(url, buf, FETCH_BUF_SIZE, NULL);
         if (err == ESP_OK) {
-            err = parse_point_response(buf, out);
+            err = parse_point_response(buf, lat, lon, out);
         }
         if (err == ESP_OK) {
             localize_and_filter(out, lat, lon, radius_nm);
