@@ -13,6 +13,7 @@
 #include "mdns.h"
 
 #include "lvgl_port.h"
+#include "settings.h"
 #include "waveshare_rgb_lcd_port.h"
 
 static const char *TAG = "web";
@@ -43,6 +44,7 @@ static const char INDEX_HTML[] =
 ".plane{font-size:20px;line-height:20px;text-shadow:0 0 3px #000}"
 "#ota{margin-top:22px;padding-top:12px;border-top:1px solid #24314f}"
 "button{background:#4da3ff;color:#06101f;border:0;border-radius:8px;padding:8px 14px;font-weight:600}"
+"button:disabled{opacity:.35}"
 "a{color:#4da3ff}"
 "</style></head><body>"
 "<h1>esp32flight</h1><div class='dim' id='hdr'>loading...</div>"
@@ -52,7 +54,7 @@ static const char INDEX_HTML[] =
 "<th>Progress</th><th>Alt</th><th>Speed</th><th>Dist</th></tr></thead>"
 "<tbody id='rows'></tbody></table>"
 "<div id='ota'><span class='dim'>Firmware update (.bin): </span>"
-"<input type='file' id='fw'> <button onclick='ota()'>Flash</button> <span id='otastat'></span>"
+"<input type='file' id='fw'> <button id='otabtn' onclick='ota()' disabled>Flash</button> <span id='otastat' class='dim'></span>"
 "<div class='dim' style='margin-top:8px'>"
 "<a href='/screen.bmp'>screenshot</a> &middot; <a href='/api/state'>api</a> &middot; "
 "<a href='https://github.com/theqkash/esp32flight'>github.com/theqkash/esp32flight</a></div></div>"
@@ -87,6 +89,8 @@ static const char INDEX_HTML[] =
 "`<div class='card'>Fastest<b>${s.max_gs_kt||0} kt</b></div>`+"
 "`<div class='card'>Farthest<b>${s.max_dist_km||0} km (${s.max_dist_callsign||'-'})</b></div>`+"
 "`<div class='card'>Uptime<b>${s.uptime_min||0} min</b></div>`;"
+"const ob=document.getElementById('otabtn');ob.disabled=!d.ota_enabled;"
+"document.getElementById('otastat').textContent=d.ota_enabled?'':'locked - enable OTA in device settings';"
 "drawMap(d);"
 "document.getElementById('rows').innerHTML=(d.flights||[]).map(f=>{"
 "const em=['7700','7600','7500'].includes(f.squawk);"
@@ -176,6 +180,12 @@ static esp_err_t api_get(httpd_req_t *req)
 
 static esp_err_t ota_post(httpd_req_t *req)
 {
+    if (!settings_get()->ota_enabled) {
+        ESP_LOGW(TAG, "OTA rejected: updates locked");
+        return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN,
+                                   "OTA locked - enable updates in the device settings");
+    }
+
     const esp_partition_t *part = esp_ota_get_next_update_partition(NULL);
     if (part == NULL) {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no OTA partition");

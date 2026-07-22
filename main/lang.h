@@ -25,6 +25,7 @@ typedef struct {
     const char *auto_location, *hide_ground, *airline_only;
     const char *city_search, *latitude, *longitude;
     const char *search_radius, *theme_lbl, *language_lbl, *save;
+    const char *ota_unlock;
     const char *dd_networks, *dd_results;
     const char *scanning, *no_networks, *not_found, *searching;
     const char *saved_restarting;

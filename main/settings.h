@@ -14,6 +14,8 @@ typedef struct {
     bool   hide_private;    /* hide non-airline traffic (callsign not AAA123-style) */
     int    theme;           /* index into theme.c palettes */
     int    lang;            /* 0 = English, 1 = Polski */
+    bool   ota_enabled;     /* volatile: always false after boot, armed from
+                               the on-device settings screen only */
 } settings_t;
 
 /* Load from NVS (menuconfig values as first-boot defaults). Call once at

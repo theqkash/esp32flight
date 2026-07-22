@@ -216,6 +216,13 @@ static void auto_loc_cb(lv_event_t *e)
     }
 }
 
+static void ota_unlock_cb(lv_event_t *e)
+{
+    /* applies immediately, never persisted: OTA re-locks on every restart */
+    settings_get()->ota_enabled =
+        lv_obj_has_state(lv_event_get_target(e), LV_STATE_CHECKED);
+}
+
 static void radius_cb(lv_event_t *e)
 {
     int nm = lv_slider_get_value(s_slider_radius);
@@ -418,6 +425,15 @@ void ui_settings_open(void)
     lv_obj_t *btn_save = add_button(s_overlay, 560, 470, 200, 52, save_txt, save_cb, COL_ACCENT);
     (void)btn_save;
 
+    /* OTA unlock: instant, session-only, no save needed */
+    add_label(s_overlay, L()->ota_unlock, 0, 548);
+    lv_obj_t *sw_ota = lv_switch_create(s_overlay);
+    lv_obj_set_pos(sw_ota, 420, 542);
+    if (cfg->ota_enabled) {
+        lv_obj_add_state(sw_ota, LV_STATE_CHECKED);
+    }
+    lv_obj_add_event_cb(sw_ota, ota_unlock_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
     /* Network info footer */
     char netbuf[80] = "";
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
@@ -427,7 +443,7 @@ void ui_settings_open(void)
     } else {
         snprintf(netbuf, sizeof(netbuf), "IP: -");
     }
-    lv_obj_t *netl = add_label(s_overlay, netbuf, 0, 540);
+    lv_obj_t *netl = add_label(s_overlay, netbuf, 0, 600);
     lv_obj_set_style_text_color(netl, COL_DIM, 0);
 
     /* Keyboard on the top layer so it stays put while the form scrolls */

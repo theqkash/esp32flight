@@ -37,6 +37,7 @@ void settings_load(void)
     s_settings.hide_private = false;
     s_settings.theme = 0;
     s_settings.lang = 1;
+    s_settings.ota_enabled = false;   /* never persisted, armed per session */
 
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) {
