@@ -5,6 +5,10 @@ A standalone desktop flight radar for the **Waveshare ESP32-S3-Touch-LCD-7**
 routes, flight progress, a route map, radar view, weather, and a built-in web
 panel with OTA updates. No Raspberry Pi, no server - one ESP32 board.
 
+**[Flash it from your browser](https://theqkash.github.io/esp32flight/)** (Chrome/Edge,
+no tools needed) or grab binaries from
+[Releases](https://github.com/theqkash/esp32flight/releases).
+
 ## Screenshots
 
 | | |
