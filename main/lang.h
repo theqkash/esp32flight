@@ -26,6 +26,7 @@ typedef struct {
     const char *city_search, *latitude, *longitude;
     const char *search_radius, *theme_lbl, *language_lbl, *save;
     const char *ota_unlock;
+    const char *ota_hint;
     const char *dd_networks, *dd_results;
     const char *scanning, *no_networks, *not_found, *searching;
     const char *saved_restarting;

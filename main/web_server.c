@@ -100,7 +100,7 @@ static const char INDEX_HTML[] =
 "<td>${f.airline||'<span class=dim>-</span>'}</td><td>${f.type||''}</td><td>${rt}</td><td>${pr}</td>"
 "<td>${f.alt_ft?f.alt_ft.toLocaleString()+' ft':'gnd'}</td><td>${f.gs_kt} kt</td><td>${f.dist_km} km</td></tr>`;"
 "}).join('');}catch(e){}}"
-"load();setInterval(load,8000);"
+"load();setInterval(load,5000);"
 "async function ota(){const f=document.getElementById('fw').files[0];if(!f)return;"
 "const st=document.getElementById('otastat');st.textContent='uploading...';"
 "try{const r=await fetch('/ota',{method:'POST',body:f});"
@@ -166,14 +166,27 @@ static esp_err_t root_get(httpd_req_t *req)
 static esp_err_t api_get(httpd_req_t *req)
 {
     char *copy = NULL;
+    size_t len = 0;
     xSemaphoreTake(s_mux, portMAX_DELAY);
     if (s_json != NULL) {
-        copy = strdup(s_json);
+        len = strlen(s_json);
+        copy = malloc(len + 32);
+        if (copy != NULL) {
+            memcpy(copy, s_json, len + 1);
+        }
     }
     xSemaphoreGive(s_mux);
 
+    /* Inject the volatile OTA state at request time so the panel always
+     * sees the switch's current position, not the cached snapshot. */
+    if (copy != NULL && len > 1 && copy[len - 1] == '}') {
+        snprintf(copy + len - 1, 32, ",\"ota_enabled\":%s}",
+                 settings_get()->ota_enabled ? "true" : "false");
+    }
+
     httpd_resp_set_type(req, "application/json");
-    esp_err_t err = httpd_resp_send(req, copy ? copy : "{}", HTTPD_RESP_USE_STRLEN);
+    esp_err_t err = httpd_resp_send(req, copy ? copy : "{\"ota_enabled\":false}",
+                                    HTTPD_RESP_USE_STRLEN);
     free(copy);
     return err;
 }

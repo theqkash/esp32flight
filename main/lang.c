@@ -24,6 +24,8 @@ static const lang_t k_en = {
     .search_radius = "Search radius", .theme_lbl = "Theme",
     .language_lbl = "Language", .save = "Save",
     .ota_unlock = "Allow OTA updates (until restart)",
+    .ota_hint = "Applies immediately, the web panel unlocks within seconds.\n"
+                "Do not tap Save: a restart locks OTA again. Just close this screen.",
     .dd_networks = "networks", .dd_results = "results",
     .scanning = "(scanning...)", .no_networks = "(no networks)",
     .not_found = "(not found)", .searching = "(searching...)",
@@ -57,6 +59,8 @@ static const lang_t k_pl = {
     .search_radius = "Promień", .theme_lbl = "Motyw",
     .language_lbl = "Język", .save = "Zapisz",
     .ota_unlock = "Zezwól na aktualizacje OTA (do restartu)",
+    .ota_hint = "Działa od razu, panel web odblokuje się w kilka sekund.\n"
+                "Nie klikaj Zapisz: restart ponownie zablokuje OTA. Zamknij ten ekran.",
     .dd_networks = "sieci", .dd_results = "wyniki",
     .scanning = "(skanowanie...)", .no_networks = "(brak sieci)",
     .not_found = "(nie znaleziono)", .searching = "(szukam...)",

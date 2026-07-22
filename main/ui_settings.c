@@ -434,6 +434,9 @@ void ui_settings_open(void)
     }
     lv_obj_add_event_cb(sw_ota, ota_unlock_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
+    lv_obj_t *hint = add_label(s_overlay, L()->ota_hint, 0, 584);
+    lv_obj_set_style_text_font(hint, &font_pl_14, 0);
+
     /* Network info footer */
     char netbuf[80] = "";
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
@@ -443,7 +446,7 @@ void ui_settings_open(void)
     } else {
         snprintf(netbuf, sizeof(netbuf), "IP: -");
     }
-    lv_obj_t *netl = add_label(s_overlay, netbuf, 0, 600);
+    lv_obj_t *netl = add_label(s_overlay, netbuf, 0, 646);
     lv_obj_set_style_text_color(netl, COL_DIM, 0);
 
     /* Keyboard on the top layer so it stays put while the form scrolls */

@@ -130,7 +130,7 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
         cJSON_AddNumberToObject(jn, "channel", ap.primary);
     }
     cJSON_AddStringToObject(jn, "mdns", "esp32flight.local");
-    cJSON_AddBoolToObject(root, "ota_enabled", settings_get()->ota_enabled);
+    /* ota_enabled is injected live by the /api/state handler, not cached here */
 
     cJSON *js = cJSON_AddObjectToObject(root, "stats");
     cJSON_AddNumberToObject(js, "unique_aircraft", s_stats.unique);
