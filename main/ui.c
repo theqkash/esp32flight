@@ -1545,7 +1545,7 @@ static void build_stats_panel(lv_obj_t *scr)
         lv_obj_t *n = make_label(box, &font_pl_14, COL_DIM);
         lv_label_set_text(n, names[i]);
         lv_label_set_long_mode(n, LV_LABEL_LONG_DOT);
-        lv_obj_set_width(n, tile_w - 16);
+        lv_obj_set_size(n, tile_w - 16, 18);
         lv_obj_align(n, LV_ALIGN_TOP_LEFT, 0, -4);
         s_sv_vals[i] = make_label(box, &font_pl_16, COL_TEXT);
         lv_obj_align(s_sv_vals[i], LV_ALIGN_BOTTOM_LEFT, 0, 4);
@@ -1574,6 +1574,9 @@ static void build_stats_panel(lv_obj_t *scr)
         s_sv_top[i] = make_label(s_stats_panel, &font_pl_16, COL_TEXT);
         lv_obj_set_pos(s_sv_top[i], (i % 2) * 236, 298 + (i / 2) * 26);
         lv_label_set_text(s_sv_top[i], "");
+        if (i >= 6) {
+            lv_obj_add_flag(s_sv_top[i], LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     s_sv_days = make_label(s_stats_panel, &font_pl_14, COL_DIM);
@@ -1581,9 +1584,9 @@ static void build_stats_panel(lv_obj_t *scr)
     lv_label_set_text(s_sv_days, "");
 
     s_sv_metar = make_label(s_stats_panel, &font_pl_14, COL_DIM);
-    lv_obj_set_pos(s_sv_metar, 0, 380);
-    lv_obj_set_width(s_sv_metar, 458);
-    lv_label_set_long_mode(s_sv_metar, LV_LABEL_LONG_WRAP);
+    lv_obj_set_pos(s_sv_metar, 0, 378);
+    lv_obj_set_size(s_sv_metar, 458, 18);
+    lv_label_set_long_mode(s_sv_metar, LV_LABEL_LONG_DOT);
     lv_label_set_text(s_sv_metar, "");
 }
 
@@ -1614,7 +1617,13 @@ static void render_stats_panel(void)
     char daysum[64];
     dailystats_summary(daysum, sizeof(daysum), L()->avg_word, L()->best_word);
     lv_label_set_text(s_sv_days, daysum);
-    lv_label_set_text(s_sv_metar, metar_get());
+    char mt[160];
+    strlcpy(mt, metar_get(), sizeof(mt));
+    char *rmk = strstr(mt, " RMK");
+    if (rmk != NULL) {
+        *rmk = '\0';    /* remarks are noise on a one-line display */
+    }
+    lv_label_set_text(s_sv_metar, mt);
 
     for (int i = 0; i < 8; i++) {
         if (i < s_stats_snap.top_n) {
