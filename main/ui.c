@@ -35,7 +35,7 @@
 
 #define LIST_W        310
 #define HEADER_H      48
-#define MAX_SHOWN     20
+#define MAX_SHOWN     40
 
 #include "theme.h"
 
