@@ -53,3 +53,5 @@ CONFIG_MBEDTLS_DYNAMIC_FREE_CA_CERT=y
 # TLS buffers go to PSRAM: internal heap is too tight for several sessions
 CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 CONFIG_SPIFFS_OBJ_NAME_LEN=48
+
+CONFIG_LV_MEM_CUSTOM_INCLUDE="esp_heap_caps.h"

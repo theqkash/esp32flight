@@ -15,6 +15,7 @@
 #include "geo_math.h"
 #include "logos.h"
 #include "flags.h"
+#include "esp_timer.h"
 #include "flight_task.h"
 #include "regcountry.h"
 #include "routes.h"
@@ -119,6 +120,7 @@ static bool s_amb_view_ok;
 static volatile bool s_amb_busy;
 static char s_amb_key[48];
 static double s_amb_bbox[4];
+static int64_t s_amb_last_try;
 static float s_amb_scale = 1.0f;   /* upscale so the radius circle fills the height */
 static int s_amb_px, s_amb_py;     /* scale pivot: home position in map pixels */
 static char s_weather_txt[96];
@@ -1055,6 +1057,44 @@ static void render_radar_panel(void)
 
 static void render_ambient(void);
 
+/* Upscale the rendered map in place around (px,py) so the observation
+ * circle spans the full screen height. One-time cost in the worker task;
+ * the displayed image stays a plain untransformed bitmap. */
+static void amb_upscale(uint16_t *fb, int px, int py, float k)
+{
+    uint16_t *tmp = heap_caps_malloc(800 * 480 * 2, MALLOC_CAP_SPIRAM);
+    if (tmp == NULL) {
+        return;
+    }
+    for (int y = 0; y < 480; y++) {
+        float sy = py + (y - py) / k;
+        int y0 = (int)sy;
+        float fy = sy - y0;
+        if (y0 < 0) { y0 = 0; fy = 0; }
+        if (y0 > 478) { y0 = 478; fy = 1; }
+        for (int x = 0; x < 800; x++) {
+            float sx = px + (x - px) / k;
+            int x0 = (int)sx;
+            float fx = sx - x0;
+            if (x0 < 0) { x0 = 0; fx = 0; }
+            if (x0 > 798) { x0 = 798; fx = 1; }
+            uint16_t c00 = fb[y0 * 800 + x0], c01 = fb[y0 * 800 + x0 + 1];
+            uint16_t c10 = fb[(y0 + 1) * 800 + x0], c11 = fb[(y0 + 1) * 800 + x0 + 1];
+            float w00 = (1 - fx) * (1 - fy), w01 = fx * (1 - fy);
+            float w10 = (1 - fx) * fy, w11 = fx * fy;
+            int r = (int)((c00 >> 11) * w00 + (c01 >> 11) * w01 +
+                          (c10 >> 11) * w10 + (c11 >> 11) * w11);
+            int g = (int)(((c00 >> 5) & 0x3F) * w00 + ((c01 >> 5) & 0x3F) * w01 +
+                          ((c10 >> 5) & 0x3F) * w10 + ((c11 >> 5) & 0x3F) * w11);
+            int b = (int)((c00 & 0x1F) * w00 + (c01 & 0x1F) * w01 +
+                          (c10 & 0x1F) * w10 + (c11 & 0x1F) * w11);
+            tmp[y * 800 + x] = (uint16_t)((r << 11) | (g << 5) | b);
+        }
+    }
+    memcpy(fb, tmp, 800 * 480 * 2);
+    free(tmp);
+}
+
 static void amb_tiles_task(void *arg)
 {
     char key[48];
@@ -1069,28 +1109,36 @@ static void amb_tiles_task(void *arg)
     bool ok = s_amb_tiles != NULL &&
               tilemap_render(s_amb_tiles, 800, 480, b[0], b[1], b[2], b[3], &view);
 
-    if (lvgl_port_lock(-1)) {
-        if (ok && s_amb != NULL) {
-            s_amb_view = view;
-            s_amb_view_ok = true;
-            /* Integer tile zooms rarely land exactly; stretch the rendered
-             * map so the observation circle spans the full screen height. */
-            int hx, hy, ex, ey;
+        float scale = 1.0f;
+        int hx = 400, hy = 240;
+        if (ok) {
+            /* Integer tile zooms rarely land exactly; pre-stretch the map
+             * once so the observation circle spans the full height. */
+            int ex, ey;
             tilemap_project(&view, s_home_lat, s_home_lon, &hx, &hy);
             double rkm = settings_get()->radius_nm * 1.852;
             tilemap_project(&view, s_home_lat + rkm / 111.0, s_home_lon, &ex, &ey);
             float r = (float)(hy - ey);
-            s_amb_scale = 1.0f;
-            s_amb_px = hx;
-            s_amb_py = hy;
             if (r > 20.0f && r < 240.0f) {
-                s_amb_scale = 240.0f / r;
-                if (s_amb_scale > 2.5f) {
-                    s_amb_scale = 2.5f;
+                scale = 240.0f / r;
+                if (scale > 2.5f) {
+                    scale = 2.5f;
                 }
             }
-            lv_img_set_pivot(s_amb_img, hx, hy);
-            lv_img_set_zoom(s_amb_img, (int)(256.0f * s_amb_scale + 0.5f));
+            if (scale > 1.05f) {
+                amb_upscale(s_amb_tiles, hx, hy, scale);
+            } else {
+                scale = 1.0f;
+            }
+        }
+
+        if (lvgl_port_lock(-1)) {
+        if (ok && s_amb != NULL) {
+            s_amb_view = view;
+            s_amb_view_ok = true;
+            s_amb_scale = scale;
+            s_amb_px = hx;
+            s_amb_py = hy;
             s_amb_tiles_dsc.header.always_zero = 0;
             s_amb_tiles_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
             s_amb_tiles_dsc.header.w = 800;
@@ -1102,6 +1150,8 @@ static void amb_tiles_task(void *arg)
         }
         lvgl_port_unlock();
     }
+    ESP_LOGI("ui", "ambient tiles: %s (scale %.2f)", ok ? "ok" : "FAILED",
+             (double)scale);
     s_amb_busy = false;
     vTaskDelete(NULL);
 }
@@ -1123,10 +1173,40 @@ static void amb_proj(double lat, double lon, lv_coord_t *x, lv_coord_t *y)
     *y = (lv_coord_t)(40 + (90.0 - lat) / 180.0 * 400);
 }
 
+static void amb_spawn_tiles(void)
+{
+    if (!s_home_ok || s_amb_busy) {
+        return;
+    }
+    int radius_nm = settings_get()->radius_nm;
+    double rkm = radius_nm * 1.852;
+    double dlat = rkm / 111.0;
+    double dlon = rkm / (111.0 * cos(s_home_lat * M_PI / 180.0));
+    s_amb_bbox[0] = s_home_lat - dlat;
+    s_amb_bbox[1] = s_home_lat + dlat;
+    s_amb_bbox[2] = s_home_lon - dlon;
+    s_amb_bbox[3] = s_home_lon + dlon;
+    snprintf(s_amb_key, sizeof(s_amb_key), "amb");
+    s_amb_last_try = esp_timer_get_time() / 1000;
+    ESP_LOGI("ui", "ambient tiles: spawning worker");
+    s_amb_busy = true;
+    if (xTaskCreatePinnedToCore(amb_tiles_task, "amb_tiles", 10240,
+                                NULL, 3, NULL, 0) != pdPASS) {
+        ESP_LOGE("ui", "ambient tiles: task create FAILED, internal heap %u",
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        s_amb_busy = false;
+    }
+}
+
 static void render_ambient(void)
 {
     if (s_amb == NULL) {
         return;
+    }
+    /* tile fetch failed earlier (offline blip): retry every 20 s */
+    if (!s_amb_view_ok && !s_amb_busy && s_home_ok &&
+        esp_timer_get_time() / 1000 - s_amb_last_try > 20000) {
+        amb_spawn_tiles();
     }
     /* observation circle: everything outside it is simply not queried */
     if (s_amb_ring != NULL && s_amb_view_ok && s_home_ok) {
@@ -1283,8 +1363,6 @@ static void amb_show(void)
     lv_obj_clear_flag(s_amb_home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(s_amb_home, LV_OBJ_FLAG_HIDDEN);
 
-    lv_img_set_antialias(s_amb_img, true);
-
     for (int i = 0; i < MAX_AIRCRAFT; i++) {
         s_amb_planes[i] = plane_img(s_amb);
         lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
@@ -1312,22 +1390,7 @@ static void amb_show(void)
     lv_label_set_text(s_amb_wx, s_weather_txt);
 
     /* home-area tiles for the whole screen */
-    if (s_home_ok && !s_amb_busy) {
-        int radius_nm = settings_get()->radius_nm;
-        double rkm = radius_nm * 1.852;
-        double dlat = rkm / 111.0;
-        double dlon = rkm / (111.0 * cos(s_home_lat * M_PI / 180.0));
-        s_amb_bbox[0] = s_home_lat - dlat;
-        s_amb_bbox[1] = s_home_lat + dlat;
-        s_amb_bbox[2] = s_home_lon - dlon;
-        s_amb_bbox[3] = s_home_lon + dlon;
-        snprintf(s_amb_key, sizeof(s_amb_key), "amb");
-        s_amb_busy = true;
-        if (xTaskCreatePinnedToCore(amb_tiles_task, "amb_tiles", 10240,
-                                    NULL, 3, NULL, 0) != pdPASS) {
-            s_amb_busy = false;
-        }
-    }
+    amb_spawn_tiles();
     render_ambient();
 }
 
