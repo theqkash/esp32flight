@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://theqkash.github.io/esp32flight/"><img src="https://img.shields.io/badge/flash-from%20your%20browser-4da3ff?style=flat-square" alt="browser flasher"></a>
-  <a href="https://github.com/theqkash/esp32flight/releases"><img src="https://img.shields.io/github/v/release/theqkash/esp32flight?style=flat-square&color=2ea44f" alt="latest release"></a>
+  <a href="https://github.com/theqkash/esp32flight/releases"><img src="https://badgen.net/github/release/theqkash/esp32flight?color=2ea44f" alt="latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
   <a href="https://ko-fi.com/theqkash"><img src="https://img.shields.io/badge/ko--fi-support%20the%20project-ff5e5b?style=flat-square&logo=kofi&logoColor=white" alt="Ko-fi"></a>
 </p>
