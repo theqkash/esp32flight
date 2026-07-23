@@ -36,14 +36,14 @@ Later updates install over the air from the web panel. The cable is only ever ne
 - Live flight list within a configurable radius (10 to 250 NM): airline logo, type, altitude with trend arrow, speed, distance; the 40 nearest of up to 80 tracked
 - Flight details: airline, route with cities, country flags and local airport times, progress bar, ETA and local arrival time, squawk, ADS-B category, aircraft photo (planespotters.net)
 - Spotter line: which way to look (compass + elevation) and a flyover prediction ("passes you in ~3 min at 1.2 km")
-- Four views: list + details, ambient auto-cycling mode, radar on a real map of your area, session stats (hourly chart, top airlines, daily records, METAR)
+- Four views: list + details, ambient auto-cycling mode, radar on a real map of your area with runway strips of nearby airports, session stats (hourly chart, top airlines, daily records, METAR)
 - Full-screen route map with the great-circle track, swipe pan and zoom, flight trails
 - Map screensaver after idle: your observation circle, every aircraft in range, clock and weather; tap a plane for its route
 - Night mode, 7 color themes, English and Polish UI, all settings on the touchscreen
 
 **Data**
 
-- Free community ADS-B sources (airplanes.live, adsb.lol) with automatic failover, refresh every 8 s
+- Free community ADS-B sources (airplanes.live, adsb.lol, adsb.fi) with automatic failover, refresh every 8 s
 - Or your own **dump1090/readsb receiver** on the LAN, with internet fallback
 - Routes cross-checked against the aircraft's real position across three databases, so stale entries are rejected, not displayed
 - Optional free FlightAware key adds ticket-style flight numbers (FR4238) and live routes
@@ -127,7 +127,7 @@ With a panel password set, every endpoint requires Basic Auth: `curl -u admin:PA
 
 | What | Source |
 |---|---|
-| Aircraft positions (ADS-B) | [airplanes.live](https://airplanes.live), fallback [adsb.lol](https://adsb.lol) |
+| Aircraft positions (ADS-B) | [airplanes.live](https://airplanes.live), fallbacks [adsb.lol](https://adsb.lol) and [adsb.fi](https://adsb.fi) |
 | Routes + airlines | [adsbdb.com](https://www.adsbdb.com), [adsb.lol routeset](https://api.adsb.lol/docs), [hexdb.io](https://hexdb.io) |
 | Map tiles | [CARTO basemaps](https://carto.com/basemaps) with data (c) [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors |
 | Geocoding, weather, timezones | [Open-Meteo](https://open-meteo.com) |
@@ -136,7 +136,7 @@ With a panel password set, every endpoint requires Basic Auth: `curl -u admin:PA
 | Aircraft photos | [planespotters.net](https://www.planespotters.net) via adsbdb |
 | Airline logos | [sexym0nk3y/airline-logos](https://github.com/sexym0nk3y/airline-logos), [Jxck-S/airline-logos](https://github.com/Jxck-S/airline-logos) |
 | Country flags | [flagcdn.com](https://flagpedia.net) (bundled) |
-| Airport database | [OurAirports](https://ourairports.com) (bundled, public domain) |
+| Airports + runways | [OurAirports](https://ourairports.com) (bundled, public domain) |
 | Offline world map | NASA Blue Marble |
 
 Optional, with a user-provided free key: [FlightAware AeroAPI](https://www.flightaware.com/commercial/aeroapi/) for commercial flight numbers and live routes.

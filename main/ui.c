@@ -16,6 +16,7 @@
 #include "logos.h"
 #include "flags.h"
 #include "esp_timer.h"
+#include "runways.h"
 #include "flight_task.h"
 #include "regcountry.h"
 #include "routes.h"
@@ -854,6 +855,9 @@ static void radar_tiles_task(void *arg)
     bool ok = s_radar_tiles != NULL &&
               tilemap_render(s_radar_tiles, RADAR_W, RADAR_H,
                              b[0], b[1], b[2], b[3], &view);
+    if (ok) {
+        runways_draw(s_radar_tiles, RADAR_W, RADAR_H, &view);
+    }
 
     if (lvgl_port_lock(-1)) {
         if (ok && strcmp(key, s_radar_want) == 0) {
@@ -957,7 +961,7 @@ static void build_radar_panel(lv_obj_t *scr)
 
     lv_obj_t *rattr = make_label(s_radar_panel, &font_pl_14, COL_DIM);
     lv_label_set_text(rattr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
-    lv_obj_align(rattr, LV_ALIGN_BOTTOM_RIGHT, -6, -2);
+    lv_obj_align(rattr, LV_ALIGN_BOTTOM_LEFT, 6, -2);
 
     s_radar_range = make_label(s_radar_panel, &font_pl_14, COL_DIM);
     lv_obj_align(s_radar_range, LV_ALIGN_BOTTOM_RIGHT, -10, -6);
@@ -1124,6 +1128,9 @@ static void amb_tiles_task(void *arg)
     tile_view_t view;
     bool ok = s_amb_tiles != NULL &&
               tilemap_render(s_amb_tiles, 800, 480, b[0], b[1], b[2], b[3], &view);
+    if (ok) {
+        runways_draw(s_amb_tiles, 800, 480, &view);
+    }
 
         float scale = 1.0f;
         int hx = 400, hy = 240;

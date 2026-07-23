@@ -257,14 +257,16 @@ esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_li
                  esp_err_to_name(lerr));
     }
 
-    const char *bases[] = {
-        "https://api.airplanes.live/v2/point",
-        "https://api.adsb.lol/v2/point",
+    /* independent community aggregators, in preference order */
+    static const char *src_fmt[] = {
+        "https://api.airplanes.live/v2/point/%.4f/%.4f/%d",
+        "https://api.adsb.lol/v2/point/%.4f/%.4f/%d",
+        "https://opendata.adsb.fi/api/v2/lat/%.4f/lon/%.4f/dist/%d",
     };
     esp_err_t err = ESP_FAIL;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         char url[128];
-        snprintf(url, sizeof(url), "%s/%.4f/%.4f/%d", bases[i], lat, lon, radius_nm);
+        snprintf(url, sizeof(url), src_fmt[i], lat, lon, radius_nm);
         err = http_get_to_buffer(url, buf, FETCH_BUF_SIZE, NULL);
         if (err == ESP_OK) {
             err = parse_point_response(buf, lat, lon, out);
@@ -272,7 +274,7 @@ esp_err_t flight_fetch_nearby(double lat, double lon, int radius_nm, aircraft_li
         if (err == ESP_OK) {
             localize_and_filter(out, lat, lon, radius_nm);
             if (i > 0) {
-                ESP_LOGI(TAG, "using fallback source adsb.lol");
+                ESP_LOGI(TAG, "using fallback source %d", i);
             }
             break;
         }
