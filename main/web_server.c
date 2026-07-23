@@ -17,6 +17,7 @@
 #include "cJSON.h"
 #include "lvgl_port.h"
 #include "obslog.h"
+#include "alertlog.h"
 #include "settings.h"
 #include "waveshare_rgb_lcd_port.h"
 
@@ -173,6 +174,9 @@ static const char INDEX_HTML[] =
 "<div class='sect'><h3>Spotting history</h3>"
 "<input id='hq' placeholder='filter (callsign, type...)'> <button onclick='loadHist()'>Load</button>"
 "<table><tbody id='hrows'></tbody></table></div>"
+"<div class='sect'><h3>Alert history</h3>"
+"<div class='help'>Emergency squawks, watchlist hits and flyover predictions that triggered a notification.</div>"
+"<table><tbody id='arows'></tbody></table></div>"
 "</div>"
 "<div id='t_api' class='tabpane'>"
 "<div class='sect api'><h3>HTTP API</h3>"
@@ -204,7 +208,13 @@ static const char INDEX_HTML[] =
 "function showTab(n){['live','hist','set','api'].forEach(k=>{"
 "document.getElementById('t_'+k).classList.toggle('on',k===n);"
 "document.getElementById('tb_'+k).classList.toggle('on',k===n);});"
-"if(n==='live'&&map)setTimeout(()=>map.invalidateSize(),50);}"
+"if(n==='live'&&map)setTimeout(()=>map.invalidateSize(),50);"
+"if(n==='hist'){loadHist();loadAlerts();}}"
+"async function loadAlerts(){try{const r=await fetch('/api/alerts');const t=await r.text();"
+"document.getElementById('arows').innerHTML=t.trim().split('\\n').reverse().filter(l=>l)"
+".slice(0,200).map(l=>{const p=l.split('\t');"
+"return `<tr><td class=dim>${new Date(+p[0]*1000).toLocaleString()}</td><td><b>${p[1]||''}</b></td><td>${p[2]||''}</td></tr>`;})"
+".join('')||'<tr><td class=dim>no alerts yet</td></tr>';}catch(e){}}"
 "function ensureMap(lat,lon,rkm){if(map||typeof L==='undefined')return;"
 "map=L.map('map').setView([lat,lon],8);"
 "L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',"
@@ -233,7 +243,7 @@ static const char INDEX_HTML[] =
 "const n=d.net||{};"
 "document.getElementById('hdr').innerHTML=`${d.city||''} (${(+d.lat).toFixed(3)}, ${(+d.lon).toFixed(3)}), radius ${d.radius_km} km${w}`;+((d.stats&&d.stats.metar)?`<br>${d.stats.metar}`:'');"
 "const s=d.stats||{};document.getElementById('cards').innerHTML="
-"`<div class='card'>Network<b>${n.ssid||'-'} ${n.rssi||''} dBm</b>${n.ip||''} \\u00B7 ${n.mdns||''}</div>`+"
+"`<div class='card'>Network<b>${n.ssid||'-'} ${n.rssi||''} dBm</b>${n.ip||''} \\u00B7 ${n.mdns||''}${n.heap_int?` \\u00B7 RAM ${Math.round(n.heap_int/1024)} KB`:''}</div>`+"
 "`<div class='card'>Unique aircraft<b>${s.unique_aircraft||0}</b></div>`+"
 "`<div class='card'>Max altitude<b>${(s.max_alt_ft||0).toLocaleString()} ft</b></div>`+"
 "`<div class='card'>Fastest<b>${s.max_gs_kt||0} kt</b></div>`+"
@@ -522,6 +532,31 @@ static esp_err_t log_get(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t alerts_get(httpd_req_t *req)
+{
+    AUTH_GUARD(req);
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    const char *paths[2] = { ALERTLOG_OLD_PATH, ALERTLOG_PATH };
+    char buf[1024];
+    for (int i = 0; i < 2; i++) {
+        FILE *f = fopen(paths[i], "r");
+        if (f == NULL) {
+            continue;
+        }
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+            if (httpd_resp_send_chunk(req, buf, n) != ESP_OK) {
+                fclose(f);
+                httpd_resp_send_chunk(req, NULL, 0);
+                return ESP_OK;
+            }
+        }
+        fclose(f);
+    }
+    httpd_resp_send_chunk(req, NULL, 0);
+    return ESP_OK;
+}
+
 static esp_err_t ota_post(httpd_req_t *req)
 {
     AUTH_GUARD(req);
@@ -607,9 +642,13 @@ static esp_err_t metrics_get(httpd_req_t *req)
              "esp32flight_max_alt_ft %d\n"
              "esp32flight_nearest_km %.1f\n"
              "esp32flight_heap_free_bytes %u\n"
+             "esp32flight_internal_heap_free_bytes %u\n"
+             "esp32flight_internal_heap_largest_block %u\n"
              "esp32flight_uptime_seconds %lld\n",
              count, unique, alt, nearest,
              (unsigned)esp_get_free_heap_size(),
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
              (long long)(esp_timer_get_time() / 1000000LL));
     httpd_resp_set_type(req, "text/plain; version=0.0.4");
     return httpd_resp_send(req, out, HTTPD_RESP_USE_STRLEN);
@@ -656,6 +695,7 @@ void web_server_start(void)
         { .uri = "/api/config", .method = HTTP_GET, .handler = config_get },
         { .uri = "/api/config", .method = HTTP_POST, .handler = config_post },
         { .uri = "/api/log", .method = HTTP_GET, .handler = log_get },
+        { .uri = "/api/alerts", .method = HTTP_GET, .handler = alerts_get },
         { .uri = "/screen.bmp", .method = HTTP_GET, .handler = screen_get },
         { .uri = "/metrics", .method = HTTP_GET, .handler = metrics_get },
         { .uri = "/ota", .method = HTTP_POST, .handler = ota_post },

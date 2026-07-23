@@ -11,6 +11,7 @@ idf_component_register(
         "routes.c"
         "logos.c"
         "flags.c"
+        "alertlog.c"
         "airlines.c"
         "airports.c"
         "dailystats.c"

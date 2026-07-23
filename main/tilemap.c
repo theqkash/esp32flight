@@ -27,8 +27,88 @@ void tilemap_init(void)
 }
 
 #define TILE_PX     256
-#define MAX_ZOOM    7
+#define MAX_ZOOM    11
 #define TILE_BUF    (96 * 1024)
+
+/* LRU cache of compressed tile PNGs in PSRAM: repeat map opens render
+ * instantly and survive short network outages. Guarded by s_render_mux
+ * (all access happens inside a render). */
+#define TCACHE_N       128
+#define TCACHE_BUDGET  (1536 * 1024)
+
+typedef struct {
+    uint32_t key;           /* (z << 26) | (tx << 13) | ty */
+    uint8_t *data;
+    uint32_t len;
+    uint32_t used_at;
+} tcache_entry_t;
+
+static tcache_entry_t s_tc[TCACHE_N];
+static size_t s_tc_bytes;
+static uint32_t s_tc_tick;
+
+static uint8_t *tcache_get(uint32_t key, uint32_t *len)
+{
+    for (int i = 0; i < TCACHE_N; i++) {
+        if (s_tc[i].data != NULL && s_tc[i].key == key) {
+            s_tc[i].used_at = ++s_tc_tick;
+            *len = s_tc[i].len;
+            return s_tc[i].data;
+        }
+    }
+    return NULL;
+}
+
+static void tcache_drop(int i)
+{
+    free(s_tc[i].data);
+    s_tc_bytes -= s_tc[i].len;
+    s_tc[i].data = NULL;
+    s_tc[i].len = 0;
+}
+
+static void tcache_put(uint32_t key, const uint8_t *data, uint32_t len)
+{
+    if (len == 0 || len > TCACHE_BUDGET / 8) {
+        return;
+    }
+    while (s_tc_bytes + len > TCACHE_BUDGET) {
+        int lru = -1;
+        for (int i = 0; i < TCACHE_N; i++) {
+            if (s_tc[i].data != NULL &&
+                (lru < 0 || s_tc[i].used_at < s_tc[lru].used_at)) {
+                lru = i;
+            }
+        }
+        if (lru < 0) {
+            return;
+        }
+        tcache_drop(lru);
+    }
+    int slot = -1;
+    for (int i = 0; i < TCACHE_N; i++) {
+        if (s_tc[i].data == NULL) {
+            slot = i;
+            break;
+        }
+        if (slot < 0 || s_tc[i].used_at < s_tc[slot].used_at) {
+            slot = i;
+        }
+    }
+    if (s_tc[slot].data != NULL) {
+        tcache_drop(slot);
+    }
+    uint8_t *copy = heap_caps_malloc(len, MALLOC_CAP_SPIRAM);
+    if (copy == NULL) {
+        return;
+    }
+    memcpy(copy, data, len);
+    s_tc[slot].key = key;
+    s_tc[slot].data = copy;
+    s_tc[slot].len = len;
+    s_tc[slot].used_at = ++s_tc_tick;
+    s_tc_bytes += len;
+}
 
 /* WGS84 -> normalized web mercator (0..1) */
 static void merc_norm(double lat, double lon, double *nx, double *ny)
@@ -75,24 +155,33 @@ static bool blit_tile(esp_http_client_handle_t client, tile_sink_t *sink,
                       uint16_t *dst, int dst_w, int dst_h,
                       int z, int tx, int ty, int ox, int oy)
 {
-    char url[96];
-    snprintf(url, sizeof(url),
-             "https://basemaps.cartocdn.com/dark_all/%d/%d/%d.png", z, tx, ty);
-    sink->len = 0;
-    esp_http_client_set_url(client, url);
-    esp_err_t err = esp_http_client_perform(client);
-    int status = esp_http_client_get_status_code(client);
-    if (err != ESP_OK || status != 200 || sink->len < 8) {
-        ESP_LOGW(TAG, "tile %d/%d/%d: %s http=%d len=%u",
-                 z, tx, ty, esp_err_to_name(err), status, (unsigned)sink->len);
-        /* after a TLS-level error the session context may be gone; reusing
-         * the connection crashes inside mbedtls_ssl_write. Force a clean
-         * reconnect for the next tile. */
-        esp_http_client_close(client);
-        return false;
+    uint32_t key = ((uint32_t)z << 26) | ((uint32_t)tx << 13) | (uint32_t)ty;
+    uint32_t clen = 0;
+    const uint8_t *fetch_buf = tcache_get(key, &clen);
+    size_t len = clen;
+    bool from_cache = fetch_buf != NULL;
+
+    if (!from_cache) {
+        char url[96];
+        snprintf(url, sizeof(url),
+                 "https://basemaps.cartocdn.com/dark_all/%d/%d/%d.png", z, tx, ty);
+        sink->len = 0;
+        esp_http_client_set_url(client, url);
+        esp_err_t err = esp_http_client_perform(client);
+        int status = esp_http_client_get_status_code(client);
+        if (err != ESP_OK || status != 200 || sink->len < 8) {
+            ESP_LOGW(TAG, "tile %d/%d/%d: %s http=%d len=%u",
+                     z, tx, ty, esp_err_to_name(err), status, (unsigned)sink->len);
+            /* after a TLS-level error the session context may be gone; reusing
+             * the connection crashes inside mbedtls_ssl_write. Force a clean
+             * reconnect for the next tile. */
+            esp_http_client_close(client);
+            return false;
+        }
+        tcache_put(key, sink->buf, sink->len);
+        fetch_buf = sink->buf;
+        len = sink->len;
     }
-    const uint8_t *fetch_buf = sink->buf;
-    size_t len = sink->len;
 
     unsigned char *rgba = NULL;
     unsigned w = 0, h = 0;

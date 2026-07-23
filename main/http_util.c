@@ -81,6 +81,42 @@ esp_err_t http_get_to_buffer_hdr(const char *url, char *buf, size_t buf_size, si
     return ESP_OK;
 }
 
+esp_err_t http_post_to_buffer(const char *url, const char *body,
+                              char *buf, size_t buf_size)
+{
+    sink_t sink = { .buf = buf, .cap = buf_size, .len = 0, .overflow = false };
+
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_POST,
+        .event_handler = http_event_cb,
+        .user_data = &sink,
+        .timeout_ms = 12000,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .user_agent = "esp32flight/1.0",
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        return ESP_FAIL;
+    }
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, body, strlen(body));
+    esp_err_t err = esp_http_client_perform(client);
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+
+    buf[sink.len] = '\0';
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "POST %s failed: %s", url, esp_err_to_name(err));
+        return err;
+    }
+    if (status < 200 || status >= 300) {
+        ESP_LOGW(TAG, "POST %s -> HTTP %d", url, status);
+        return ESP_ERR_HTTP_BASE + status;
+    }
+    return ESP_OK;
+}
+
 esp_err_t http_post_text(const char *url, const char *body,
                          const char *hdr_key, const char *hdr_val)
 {

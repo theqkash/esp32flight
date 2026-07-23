@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "http_util.h"
 #include "settings.h"
+#include "routes.h"
 
 static const char *TAG = "faflight";
 
@@ -68,6 +69,21 @@ const char *faflight_fetch(const char *callsign)
             if (cJSON_IsString(iata) && iata->valuestring[0] != '\0' &&
                 strcmp(iata->valuestring, callsign) != 0) {
                 strlcpy(slot->iata, iata->valuestring, sizeof(slot->iata));
+            }
+            /* the same response carries the live origin/destination: use it
+             * as an authoritative route when the free DBs came up empty */
+            const cJSON *jo = first ? cJSON_GetObjectItem(first, "origin") : NULL;
+            const cJSON *jd = first ? cJSON_GetObjectItem(first, "destination") : NULL;
+            const cJSON *oc = jo ? cJSON_GetObjectItem(jo, "code_icao") : NULL;
+            const cJSON *dc = jd ? cJSON_GetObjectItem(jd, "code_icao") : NULL;
+            if (!cJSON_IsString(oc) && jo) {
+                oc = cJSON_GetObjectItem(jo, "code");
+            }
+            if (!cJSON_IsString(dc) && jd) {
+                dc = cJSON_GetObjectItem(jd, "code");
+            }
+            if (cJSON_IsString(oc) && cJSON_IsString(dc)) {
+                routes_inject(callsign, oc->valuestring, dc->valuestring);
             }
             cJSON_Delete(root);
         }

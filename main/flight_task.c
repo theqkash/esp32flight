@@ -308,6 +308,8 @@ static void publish_web_state(const aircraft_list_t *list, const weather_t *wx,
         char ip[16];
         snprintf(ip, sizeof(ip), IPSTR, IP2STR(&ip_info.ip));
         cJSON_AddStringToObject(jn, "ip", ip);
+        cJSON_AddNumberToObject(jn, "heap_int",
+                                (double)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
         snprintf(ip, sizeof(ip), IPSTR, IP2STR(&ip_info.gw));
         cJSON_AddStringToObject(jn, "gateway", ip);
     }

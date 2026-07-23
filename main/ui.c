@@ -105,8 +105,12 @@ static lv_obj_t *s_amb_planes[MAX_AIRCRAFT];
 static lv_obj_t *s_amb_lbls[MAX_SHOWN];
 static lv_obj_t *s_amb_clock, *s_amb_wx;
 static lv_obj_t *s_amb_ring, *s_amb_home;
+static lv_obj_t *s_amb_selbub;
+static char s_amb_sel_cs[9];   /* callsign picked by tapping its sprite */
 typedef struct {
+    char  callsign[9];
     float lat, lon, track;
+    float dist_nm, dir_deg;
     int   alt_ft;
     bool  ground;
 } amb_target_t;
@@ -141,7 +145,7 @@ static lv_obj_t *s_gear_label;
 
 /* Radar view */
 static lv_obj_t *s_radar_panel;
-static lv_obj_t *s_radar_dots[MAX_SHOWN];
+static lv_obj_t *s_radar_dots[MAX_AIRCRAFT];
 static lv_obj_t *s_radar_info;
 static lv_obj_t *s_radar_range;
 static lv_obj_t *s_radar_img;
@@ -940,7 +944,7 @@ static void build_radar_panel(lv_obj_t *scr)
     lv_obj_clear_flag(home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     s_radar_home = home;
 
-    for (int i = 0; i < MAX_SHOWN; i++) {
+    for (int i = 0; i < MAX_AIRCRAFT; i++) {
         s_radar_dots[i] = plane_img(s_radar_panel);
     }
 
@@ -994,45 +998,50 @@ static void render_radar_panel(void)
         lv_label_set_text_fmt(s_radar_range, L()->ring_fmt, (int)(radius_nm * 1.852 / 3));
     }
 
-    for (int i = 0; i < MAX_SHOWN; i++) {
-        if (i >= s_shown_count || s_shown[i].ac.dist_nm < 0) {
+    const aircraft_t *selac = (s_selected >= 0 && s_selected < s_shown_count)
+                                  ? &s_shown[s_selected].ac : NULL;
+    for (int i = 0; i < MAX_AIRCRAFT; i++) {
+        if (i >= s_all_count || s_all[i].dist_nm < 0) {
             lv_obj_add_flag(s_radar_dots[i], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
-        const aircraft_t *ac = &s_shown[i].ac;
+        const amb_target_t *t = &s_all[i];
         int x, y;
-        if (map_mode && ac->has_pos) {
-            tilemap_project(&s_radar_view, ac->lat, ac->lon, &x, &y);
+        if (map_mode) {
+            tilemap_project(&s_radar_view, t->lat, t->lon, &x, &y);
             if (x < -14 || x > RADAR_W + 14 || y < -14 || y > RADAR_H + 14) {
                 lv_obj_add_flag(s_radar_dots[i], LV_OBJ_FLAG_HIDDEN);
                 continue;
             }
         } else {
-            float frac = ac->dist_nm / (float)radius_nm;
+            float frac = t->dist_nm / (float)radius_nm;
             if (frac > 1.0f) {
                 frac = 1.0f;
             }
-            float rad = ac->dir_deg * (float)M_PI / 180.0f;
+            float rad = t->dir_deg * (float)M_PI / 180.0f;
             x = RADAR_CX + (int)(sinf(rad) * frac * RADAR_R);
             y = RADAR_CY - (int)(cosf(rad) * frac * RADAR_R);
         }
+        bool sel = selac != NULL && selac->callsign[0] &&
+                   strcmp(t->callsign, selac->callsign) == 0;
         lv_obj_set_pos(s_radar_dots[i], x - 14, y - 14);
-        lv_img_set_angle(s_radar_dots[i], (int)(ac->track_deg * 10));
-        lv_img_set_zoom(s_radar_dots[i], i == s_selected ? 384 : 232);
+        lv_img_set_angle(s_radar_dots[i], (int)(t->track * 10));
+        lv_img_set_zoom(s_radar_dots[i], sel ? 384 : 232);
         lv_obj_set_style_img_recolor(s_radar_dots[i],
-                                     alt_color(ac->alt_baro_ft, ac->on_ground), 0);
+                                     alt_color(t->alt_ft, t->ground), 0);
         lv_obj_clear_flag(s_radar_dots[i], LV_OBJ_FLAG_HIDDEN);
 
-        if (i == s_selected) {
+        if (sel) {
             char info[96];
-            if (ac->on_ground) {
+            if (selac->on_ground) {
                 snprintf(info, sizeof(info), "%s\n%s  %.1f km",
-                         ac->callsign[0] ? ac->callsign : ac->hex,
-                         L()->ground, ac->dist_nm * 1.852);
+                         selac->callsign[0] ? selac->callsign : selac->hex,
+                         L()->ground, selac->dist_nm * 1.852);
             } else {
                 snprintf(info, sizeof(info), "%s\n%d ft  %.0f kt  %.1f km",
-                         ac->callsign[0] ? ac->callsign : ac->hex,
-                         ac->alt_baro_ft, (double)ac->gs_kts, ac->dist_nm * 1.852);
+                         selac->callsign[0] ? selac->callsign : selac->hex,
+                         selac->alt_baro_ft, (double)selac->gs_kts,
+                         selac->dist_nm * 1.852);
             }
             lv_label_set_text(s_radar_info, info);
             int lx = x + 12, ly = y - 10;
@@ -1067,6 +1076,9 @@ static void amb_upscale(uint16_t *fb, int px, int py, float k)
         return;
     }
     for (int y = 0; y < 480; y++) {
+        if ((y & 63) == 63) {
+            vTaskDelay(1);      /* let IDLE0 feed the task watchdog */
+        }
         float sy = py + (y - py) / k;
         int y0 = (int)sy;
         float fy = sy - y0;
@@ -1242,6 +1254,50 @@ static void render_ambient(void)
         lv_obj_clear_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
     }
 
+    /* bubble for the tapped aircraft */
+    if (s_amb_selbub != NULL) {
+        int sel = -1;
+        for (int i = 0; s_amb_sel_cs[0] && i < s_all_count; i++) {
+            if (strcmp(s_all[i].callsign, s_amb_sel_cs) == 0) {
+                sel = i;
+                break;
+            }
+        }
+        if (sel >= 0) {
+            char txt[96];
+            const route_info_t *rt = routes_get_cached(s_all[sel].callsign);
+            if (rt != NULL && rt->valid) {
+                snprintf(txt, sizeof(txt), "%s\n%s " LV_SYMBOL_RIGHT " %s\n%d ft",
+                         s_all[sel].callsign,
+                         rt->origin.iata[0] ? rt->origin.iata : rt->origin.icao,
+                         rt->destination.iata[0] ? rt->destination.iata
+                                                 : rt->destination.icao,
+                         s_all[sel].alt_ft);
+            } else {
+                snprintf(txt, sizeof(txt), "%s\n%d ft", s_all[sel].callsign,
+                         s_all[sel].alt_ft);
+            }
+            lv_label_set_text(s_amb_selbub, txt);
+            lv_coord_t x, y;
+            amb_proj(s_all[sel].lat, s_all[sel].lon, &x, &y);
+            int lx = x + 18, ly = y - 12;
+            if (lx > 660) {
+                lx = x - 140;
+            }
+            if (ly < 0) {
+                ly = 0;
+            }
+            if (ly > 410) {
+                ly = 410;
+            }
+            lv_obj_set_pos(s_amb_selbub, lx, ly);
+            lv_obj_clear_flag(s_amb_selbub, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(s_amb_selbub);
+        } else {
+            lv_obj_add_flag(s_amb_selbub, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
     /* info bubbles only for the nearest ones, to keep the map readable */
     lv_area_t placed[MAX_SHOWN];
     int nplaced = 0;
@@ -1309,6 +1365,7 @@ static void amb_close(void)
         s_amb_view_ok = false;
         s_amb_key[0] = '\0';
         s_amb_scale = 1.0f;
+        s_amb_sel_cs[0] = '\0';
     }
 }
 
@@ -1318,6 +1375,34 @@ static void amb_click_cb(lv_event_t *e)
         waveshare_rgb_lcd_bl_on();
         s_bl_off = false;
         return;     /* first tap only wakes the screen */
+    }
+    /* tap on (near) a plane selects it and shows its bubble;
+     * tap on empty map closes the screensaver */
+    lv_indev_t *indev = lv_indev_get_act();
+    lv_point_t pt;
+    if (indev != NULL) {
+        lv_indev_get_point(indev, &pt);
+        int best = -1, best_d2 = 48 * 48;
+        for (int i = 0; i < s_all_count; i++) {
+            lv_coord_t x, y;
+            amb_proj(s_all[i].lat, s_all[i].lon, &x, &y);
+            int dx = pt.x - x, dy = pt.y - y;
+            int d2 = dx * dx + dy * dy;
+            if (d2 < best_d2) {
+                best_d2 = d2;
+                best = i;
+            }
+        }
+        if (best >= 0) {
+            strlcpy(s_amb_sel_cs, s_all[best].callsign, sizeof(s_amb_sel_cs));
+            render_ambient();
+            return;
+        }
+        if (s_amb_sel_cs[0]) {      /* deselect first, close on next tap */
+            s_amb_sel_cs[0] = '\0';
+            render_ambient();
+            return;
+        }
     }
     amb_close();
 }
@@ -1374,6 +1459,14 @@ static void amb_show(void)
         lv_obj_set_style_pad_hor(s_amb_lbls[i], 4, 0);
         lv_obj_add_flag(s_amb_lbls[i], LV_OBJ_FLAG_HIDDEN);
     }
+
+    s_amb_selbub = make_label(s_amb, &font_pl_16, lv_color_hex(0xffffff));
+    lv_obj_set_style_bg_color(s_amb_selbub, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_amb_selbub, LV_OPA_70, 0);
+    lv_obj_set_style_pad_all(s_amb_selbub, 6, 0);
+    lv_obj_set_style_border_width(s_amb_selbub, 1, 0);
+    lv_obj_set_style_border_color(s_amb_selbub, COL_ACCENT, 0);
+    lv_obj_add_flag(s_amb_selbub, LV_OBJ_FLAG_HIDDEN);
 
     s_amb_clock = make_label(s_amb, &lv_font_montserrat_32, lv_color_hex(0xffffff));
     lv_obj_set_style_bg_color(s_amb_clock, lv_color_hex(0x000000), 0);
@@ -1954,9 +2047,12 @@ void ui_update(const aircraft_list_t *list)
             continue;
         }
         amb_target_t *t = &s_all[s_all_count++];
+        strlcpy(t->callsign, list->ac[i].callsign, sizeof(t->callsign));
         t->lat = (float)list->ac[i].lat;
         t->lon = (float)list->ac[i].lon;
         t->track = list->ac[i].track_deg;
+        t->dist_nm = list->ac[i].dist_nm;
+        t->dir_deg = list->ac[i].dir_deg;
         t->alt_ft = list->ac[i].alt_baro_ft;
         t->ground = list->ac[i].on_ground;
     }

@@ -232,6 +232,61 @@ static bool hexdb_airport(char *buf, const char *icao, airport_t *ap)
     return ok && ap->iata[0] != '\0';
 }
 
+/* adsb.lol routeset: crowd-sourced callsign->route with server-side
+ * position plausibility. Better coverage of US carriers than adsbdb. */
+static void lol_routeset(char *buf, route_info_t *slot,
+                         double ac_lat, double ac_lon, bool has_pos)
+{
+    char body[160];
+    if (has_pos) {
+        snprintf(body, sizeof(body),
+                 "{\"planes\":[{\"callsign\":\"%s\",\"lat\":%.4f,\"lng\":%.4f}]}",
+                 slot->callsign, ac_lat, ac_lon);
+    } else {
+        snprintf(body, sizeof(body),
+                 "{\"planes\":[{\"callsign\":\"%s\",\"lat\":0,\"lng\":0}]}",
+                 slot->callsign);
+    }
+    if (http_post_to_buffer("https://api.adsb.lol/api/0/routeset", body,
+                            buf, 8192) != ESP_OK) {
+        return;
+    }
+    cJSON *root = cJSON_Parse(buf);
+    if (root == NULL) {
+        return;
+    }
+    const cJSON *first = cJSON_IsArray(root) ? cJSON_GetArrayItem(root, 0) : NULL;
+    const cJSON *aps = first ? cJSON_GetObjectItem(first, "_airports") : NULL;
+    const cJSON *pl = first ? cJSON_GetObjectItem(first, "plausible") : NULL;
+    bool plausible = pl == NULL || cJSON_IsTrue(pl) ||
+                     (cJSON_IsNumber(pl) && pl->valuedouble != 0);
+    char orig[8] = "", dest[8] = "";
+    if (plausible && cJSON_IsArray(aps) && cJSON_GetArraySize(aps) >= 2) {
+        const cJSON *a0 = cJSON_GetArrayItem(aps, 0);
+        const cJSON *a1 = cJSON_GetArrayItem(aps, cJSON_GetArraySize(aps) - 1);
+        const cJSON *f;
+        if (a0 && (f = cJSON_GetObjectItem(a0, "icao")) && cJSON_IsString(f)) {
+            strlcpy(orig, f->valuestring, sizeof(orig));
+        }
+        if (a1 && (f = cJSON_GetObjectItem(a1, "icao")) && cJSON_IsString(f)) {
+            strlcpy(dest, f->valuestring, sizeof(dest));
+        }
+    }
+    cJSON_Delete(root);
+
+    if (strlen(orig) != 4 || strlen(dest) != 4 || strcmp(orig, dest) == 0) {
+        return;
+    }
+    if (hexdb_airport(buf, orig, &slot->origin) &&
+        hexdb_airport(buf, dest, &slot->destination)) {
+        slot->valid = true;
+        ESP_LOGI(TAG, "%s: route from adsb.lol routeset", slot->callsign);
+    } else {
+        memset(&slot->origin, 0, sizeof(slot->origin));
+        memset(&slot->destination, 0, sizeof(slot->destination));
+    }
+}
+
 static void hexdb_fallback(char *buf, route_info_t *slot)
 {
     char url[80];
@@ -339,6 +394,14 @@ const route_info_t *routes_fetch(const char *callsign,
         memset(&slot->destination, 0, sizeof(slot->destination));
     }
     if (!slot->valid) {
+        lol_routeset(buf, slot, ac_lat, ac_lon, has_pos);
+        if (slot->valid && !route_fits_position(slot, ac_lat, ac_lon, has_pos)) {
+            ESP_LOGW(TAG, "%s: routeset %s->%s doesn't fit position",
+                     callsign, slot->origin.icao, slot->destination.icao);
+            slot->valid = false;
+        }
+    }
+    if (!slot->valid) {
         hexdb_fallback(buf, slot);
         if (slot->valid && !route_fits_position(slot, ac_lat, ac_lon, has_pos)) {
             ESP_LOGW(TAG, "%s: hexdb route %s->%s doesn't fit position either",
@@ -367,4 +430,50 @@ const route_info_t *routes_fetch(const char *callsign,
                  slot->origin.icao, slot->destination.icao, slot->airline_name);
     }
     return slot;
+}
+
+void routes_inject(const char *callsign, const char *orig_icao, const char *dest_icao)
+{
+    if (callsign == NULL || callsign[0] == '\0' || !cache_ready() ||
+        orig_icao == NULL || dest_icao == NULL ||
+        strlen(orig_icao) != 4 || strlen(dest_icao) != 4 ||
+        strcmp(orig_icao, dest_icao) == 0) {
+        return;
+    }
+    route_info_t *slot = NULL;
+    for (int i = 0; i < s_used; i++) {
+        if (strcmp(s_cache[i].callsign, callsign) == 0) {
+            slot = &s_cache[i];
+            break;
+        }
+    }
+    if (slot != NULL && slot->valid) {
+        return;     /* an already validated route wins */
+    }
+    if (slot == NULL) {
+        slot = cache_slot(callsign);
+        if (slot == NULL) {
+            return;
+        }
+    }
+    char *buf = malloc(4096);
+    if (buf == NULL) {
+        return;
+    }
+    memset(&slot->origin, 0, sizeof(slot->origin));
+    memset(&slot->destination, 0, sizeof(slot->destination));
+    slot->valid = hexdb_airport(buf, orig_icao, &slot->origin) &&
+                  hexdb_airport(buf, dest_icao, &slot->destination);
+    slot->fetched_ms = esp_timer_get_time() / 1000;
+    free(buf);
+    if (slot->valid) {
+        slot->origin.tz_known = tz_offset_for(slot->origin.icao,
+                                              slot->origin.lat, slot->origin.lon,
+                                              &slot->origin.tz_offset_s);
+        slot->destination.tz_known = tz_offset_for(slot->destination.icao,
+                                                   slot->destination.lat,
+                                                   slot->destination.lon,
+                                                   &slot->destination.tz_offset_s);
+        ESP_LOGI(TAG, "%s: %s -> %s (injected)", callsign, orig_icao, dest_icao);
+    }
 }

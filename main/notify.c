@@ -1,5 +1,7 @@
 #include "notify.h"
 
+#include "alertlog.h"
+
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
@@ -11,6 +13,8 @@ static const char *TAG = "notify";
 void notify_send(const char *title, const char *message)
 {
     const settings_t *cfg = settings_get();
+
+    alertlog_append(title, message);
 
     if (cfg->ntfy_topic[0] != '\0') {
         char url[96];
