@@ -259,12 +259,6 @@ static void build_content(void)
     lv_label_set_text(tl, title);
     lv_obj_set_pos(tl, 16, 12);
 
-    lv_obj_t *attr = lv_label_create(s_overlay);
-    lv_obj_set_style_text_font(attr, &font_pl_14, 0);
-    lv_obj_set_style_text_color(attr, lv_color_hex(0x777777), 0);
-    lv_label_set_text(attr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
-    lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -10, -4);
-
     lv_obj_t *btn_close = lv_btn_create(s_overlay);
     lv_obj_set_size(btn_close, 52, 40);
     lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, -12, 8);
@@ -273,20 +267,6 @@ static void build_content(void)
     lv_obj_t *xl = lv_label_create(btn_close);
     lv_label_set_text(xl, LV_SYMBOL_CLOSE);
     lv_obj_center(xl);
-
-    /* manual zoom */
-    static const char *zsym[2] = { LV_SYMBOL_PLUS, LV_SYMBOL_MINUS };
-    for (int i = 0; i < 2; i++) {
-        lv_obj_t *zb = lv_btn_create(s_overlay);
-        lv_obj_set_size(zb, 52, 44);
-        lv_obj_align(zb, LV_ALIGN_BOTTOM_RIGHT, -12, -84 + i * 52);
-        lv_obj_set_style_bg_color(zb, COL_PANEL, 0);
-        lv_obj_add_event_cb(zb, zoom_cb, LV_EVENT_CLICKED,
-                            (void *)(intptr_t)(i == 0 ? 1 : -1));
-        lv_obj_t *zl = lv_label_create(zb);
-        lv_label_set_text(zl, zsym[i]);
-        lv_obj_center(zl);
-    }
 
     /* Map: tile view when rendered, bundled world map otherwise */
     const lv_img_dsc_t *map = s_view_ok ? &s_tiles_dsc : ui_map_get_image();
@@ -380,6 +360,30 @@ static void build_content(void)
     lv_obj_set_style_text_color(fl, COL_DIM, 0);
     lv_label_set_text(fl, foot);
     lv_obj_align(fl, LV_ALIGN_BOTTOM_LEFT, 16, -6);
+
+    /* on-map controls last, so nothing paints over them */
+    static const char *zsym[2] = { LV_SYMBOL_PLUS, LV_SYMBOL_MINUS };
+    for (int i = 0; i < 2; i++) {
+        lv_obj_t *zb = lv_btn_create(s_overlay);
+        lv_obj_set_size(zb, 56, 48);
+        lv_obj_align(zb, LV_ALIGN_BOTTOM_RIGHT, -12, -92 + i * 56);
+        lv_obj_set_style_bg_color(zb, COL_ACCENT, 0);
+        lv_obj_set_style_bg_opa(zb, LV_OPA_90, 0);
+        lv_obj_set_style_shadow_width(zb, 12, 0);
+        lv_obj_set_style_shadow_opa(zb, LV_OPA_40, 0);
+        lv_obj_add_event_cb(zb, zoom_cb, LV_EVENT_CLICKED,
+                            (void *)(intptr_t)(i == 0 ? 1 : -1));
+        lv_obj_t *zl = lv_label_create(zb);
+        lv_obj_set_style_text_color(zl, COL_BG, 0);
+        lv_label_set_text(zl, zsym[i]);
+        lv_obj_center(zl);
+    }
+
+    lv_obj_t *attr = lv_label_create(s_overlay);
+    lv_obj_set_style_text_font(attr, &font_pl_14, 0);
+    lv_obj_set_style_text_color(attr, lv_color_hex(0x9a9a9a), 0);
+    lv_label_set_text(attr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
+    lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -12, -4);
 }
 
 static void map_tiles_task(void *arg)
