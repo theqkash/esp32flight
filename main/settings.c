@@ -39,10 +39,15 @@ void settings_load(void)
     s_settings.lang = 1;
     s_settings.ota_enabled = false;   /* never persisted, armed per session */
     s_settings.cpa_alerts = true;
+    s_settings.cpa_all = false;
     s_settings.night_enabled = false;
     s_settings.night_start_min = 23 * 60;
     s_settings.night_end_min = 6 * 60 + 30;
     s_settings.ambient_idle_min = 10;
+    s_settings.filter_airport[0] = '\0';
+    s_settings.filter_apt_exclude = false;
+    s_settings.alt_min_ft = 0;
+    s_settings.alt_max_ft = 0;
 
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) {
@@ -94,9 +99,23 @@ void settings_load(void)
     get_str(h, "webhook", s_settings.webhook_url, sizeof(s_settings.webhook_url));
     get_str(h, "ladsb", s_settings.local_adsb, sizeof(s_settings.local_adsb));
     get_str(h, "webpass", s_settings.web_pass, sizeof(s_settings.web_pass));
+    get_str(h, "fltapt", s_settings.filter_airport, sizeof(s_settings.filter_airport));
+    int32_t alt = 0;
+    if (nvs_get_i32(h, "altmin", &alt) == ESP_OK && alt >= 0) {
+        s_settings.alt_min_ft = alt;
+    }
+    if (nvs_get_i32(h, "altmax", &alt) == ESP_OK && alt >= 0) {
+        s_settings.alt_max_ft = alt;
+    }
     uint8_t b8 = 0;
     if (nvs_get_u8(h, "cpa", &b8) == ESP_OK) {
         s_settings.cpa_alerts = b8 != 0;
+    }
+    if (nvs_get_u8(h, "cpa_all", &b8) == ESP_OK) {
+        s_settings.cpa_all = b8 != 0;
+    }
+    if (nvs_get_u8(h, "fltexcl", &b8) == ESP_OK) {
+        s_settings.filter_apt_exclude = b8 != 0;
     }
     if (nvs_get_u8(h, "night", &b8) == ESP_OK) {
         s_settings.night_enabled = b8 != 0;
@@ -112,8 +131,9 @@ void settings_load(void)
         s_settings.ambient_idle_min = m;
     }
     nvs_close(h);
-    ESP_LOGI(TAG, "loaded: ssid=\"%s\" fixed_loc=%d radius=%d nm",
-             s_settings.wifi_ssid, s_settings.use_fixed_loc, s_settings.radius_nm);
+    ESP_LOGI(TAG, "loaded: ssid=\"%s\" fixed_loc=%d radius=%d nm lang=%d theme=%d",
+             s_settings.wifi_ssid, s_settings.use_fixed_loc, s_settings.radius_nm,
+             s_settings.lang, s_settings.theme);
 }
 
 esp_err_t settings_save(void)
@@ -144,7 +164,12 @@ esp_err_t settings_save(void)
     nvs_set_str(h, "webhook", s_settings.webhook_url);
     nvs_set_str(h, "ladsb", s_settings.local_adsb);
     nvs_set_str(h, "webpass", s_settings.web_pass);
+    nvs_set_str(h, "fltapt", s_settings.filter_airport);
+    nvs_set_i32(h, "altmin", s_settings.alt_min_ft);
+    nvs_set_i32(h, "altmax", s_settings.alt_max_ft);
     nvs_set_u8(h, "cpa", s_settings.cpa_alerts ? 1 : 0);
+    nvs_set_u8(h, "cpa_all", s_settings.cpa_all ? 1 : 0);
+    nvs_set_u8(h, "fltexcl", s_settings.filter_apt_exclude ? 1 : 0);
     nvs_set_u8(h, "night", s_settings.night_enabled ? 1 : 0);
     nvs_set_i32(h, "night_s", s_settings.night_start_min);
     nvs_set_i32(h, "night_e", s_settings.night_end_min);

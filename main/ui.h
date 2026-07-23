@@ -16,6 +16,10 @@ void ui_set_weather(const char *text);
 /* Emergency styling for the status line (red, larger). */
 void ui_set_status_alert(bool alert);
 
+/* Amber on-screen banner for an incoming flyover (auto-hides, tap to close).
+ * Safe to call from any task. */
+void ui_flyover_banner(const char *callsign, int eta_min, double cpa_km);
+
 /* Highlight the gear icon when a newer release is on GitHub. */
 void ui_set_update_available(bool available);
 

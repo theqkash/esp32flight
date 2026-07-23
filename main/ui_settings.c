@@ -1,5 +1,6 @@
 #include "ui_settings.h"
 #include "esp_log.h"
+#include "esp_app_desc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,8 @@ static lv_obj_t *s_kb;
 static lv_obj_t *s_ta_ssid, *s_ta_pass, *s_ta_city, *s_ta_lat, *s_ta_lon;
 static lv_obj_t *s_ta_watch, *s_ta_ntfy, *s_ta_mqtt, *s_ta_fa, *s_ta_webhook, *s_ta_ladsb;
 static lv_obj_t *s_ta_webpass;
+static lv_obj_t *s_ta_fltapt, *s_ta_altmin, *s_ta_altmax;
+static lv_obj_t *s_dd_cpa_scope, *s_dd_aptmode;
 static lv_obj_t *s_ta_night_from, *s_ta_night_to, *s_ta_amb_idle;
 static lv_obj_t *s_dd_networks, *s_dd_cities, *s_dd_theme, *s_dd_lang;
 static lv_obj_t *s_sw_auto, *s_sw_ground, *s_sw_private, *s_sw_cpa, *s_sw_night;
@@ -269,6 +272,11 @@ static void save_cb(lv_event_t *e)
     strlcpy(cfg->webhook_url, lv_textarea_get_text(s_ta_webhook), sizeof(cfg->webhook_url));
     strlcpy(cfg->local_adsb, lv_textarea_get_text(s_ta_ladsb), sizeof(cfg->local_adsb));
     strlcpy(cfg->web_pass, lv_textarea_get_text(s_ta_webpass), sizeof(cfg->web_pass));
+    strlcpy(cfg->filter_airport, lv_textarea_get_text(s_ta_fltapt), sizeof(cfg->filter_airport));
+    cfg->alt_min_ft = atoi(lv_textarea_get_text(s_ta_altmin));
+    cfg->alt_max_ft = atoi(lv_textarea_get_text(s_ta_altmax));
+    cfg->filter_apt_exclude = lv_dropdown_get_selected(s_dd_aptmode) == 1;
+    cfg->cpa_all = lv_dropdown_get_selected(s_dd_cpa_scope) == 1;
     cfg->theme = lv_dropdown_get_selected(s_dd_theme);
     cfg->lang = lv_dropdown_get_selected(s_dd_lang);
     ESP_LOGI("settings", "device save: lang=%d theme=%d fixed=%d",
@@ -297,6 +305,22 @@ static lv_obj_t *add_label(lv_obj_t *parent, const char *text, int x, int y)
     lv_label_set_text(l, text);
     lv_obj_set_pos(l, x, y);
     return l;
+}
+
+static void add_section(lv_obj_t *parent, const char *text, int y)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_obj_set_style_text_font(l, &font_pl_14, 0);
+    lv_obj_set_style_text_color(l, COL_ACCENT, 0);
+    lv_label_set_text(l, text);
+    lv_obj_set_pos(l, 0, y);
+    lv_obj_t *ln = lv_obj_create(parent);
+    lv_obj_set_size(ln, 740, 1);
+    lv_obj_set_pos(ln, 0, y + 22);
+    lv_obj_set_style_bg_color(ln, COL_DIM, 0);
+    lv_obj_set_style_bg_opa(ln, LV_OPA_40, 0);
+    lv_obj_set_style_border_width(ln, 0, 0);
+    lv_obj_clear_flag(ln, LV_OBJ_FLAG_SCROLLABLE);
 }
 
 static lv_obj_t *add_hint(lv_obj_t *parent, const char *text, int x, int y, int w)
@@ -461,21 +485,30 @@ void ui_settings_open(void)
 
     /* --- Filters + alerts --- */
     p = tab_page(tv, L()->tab_filters);
-    s_sw_ground = add_switch(p, L()->hide_ground, 0, 0, cfg->hide_ground);
-    s_sw_private = add_switch(p, L()->airline_only, 380, 0, cfg->hide_private);
-    s_sw_cpa = add_switch(p, L()->cpa_lbl, 0, 52, cfg->cpa_alerts);
-    add_label(p, L()->lbl_watch, 0, 108);
-    s_ta_watch = add_textarea(p, 0, 132, 740, cfg->watch_regs, false);
-    s_sw_night = add_switch(p, L()->night_lbl, 0, 192, cfg->night_enabled);
-    add_label(p, L()->night_from, 380, 186);
-    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_start_min / 60, cfg->night_start_min % 60);
-    s_ta_night_from = add_textarea(p, 380, 210, 110, buf, false);
-    add_label(p, L()->night_to, 510, 186);
-    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_end_min / 60, cfg->night_end_min % 60);
-    s_ta_night_to = add_textarea(p, 510, 210, 110, buf, false);
-    add_label(p, L()->amb_idle_lbl, 0, 250);
-    snprintf(buf, sizeof(buf), "%d", cfg->ambient_idle_min);
-    s_ta_amb_idle = add_textarea(p, 380, 244, 110, buf, false);
+    add_section(p, L()->sec_traffic, 0);
+    s_sw_ground = add_switch(p, L()->hide_ground, 0, 32, cfg->hide_ground);
+    s_sw_private = add_switch(p, L()->airline_only, 380, 32, cfg->hide_private);
+    add_label(p, L()->lbl_altmin, 0, 88);
+    snprintf(buf, sizeof(buf), "%d", cfg->alt_min_ft);
+    s_ta_altmin = add_textarea(p, 0, 112, 140, buf, false);
+    add_label(p, L()->lbl_altmax, 180, 88);
+    snprintf(buf, sizeof(buf), "%d", cfg->alt_max_ft);
+    s_ta_altmax = add_textarea(p, 180, 112, 140, buf, false);
+    add_label(p, L()->lbl_fltapt, 380, 88);
+    s_ta_fltapt = add_textarea(p, 380, 112, 140, cfg->filter_airport, false);
+    s_dd_aptmode = add_dropdown(p, 540, 112, 200, NULL);
+    lv_dropdown_set_options(s_dd_aptmode, L()->apt_mode_opts);
+    lv_dropdown_set_selected(s_dd_aptmode, cfg->filter_apt_exclude ? 1 : 0);
+
+    add_section(p, L()->sec_watch, 180);
+    s_ta_watch = add_textarea(p, 0, 212, 740, cfg->watch_regs, false);
+    add_hint(p, L()->lbl_watch, 0, 258, 740);
+
+    add_section(p, L()->sec_alerts, 292);
+    s_sw_cpa = add_switch(p, L()->cpa_lbl, 0, 324, cfg->cpa_alerts);
+    s_dd_cpa_scope = add_dropdown(p, 500, 320, 240, NULL);
+    lv_dropdown_set_options(s_dd_cpa_scope, L()->cpa_scope_opts);
+    lv_dropdown_set_selected(s_dd_cpa_scope, cfg->cpa_all ? 1 : 0);
 
     /* --- Integrations --- */
     p = tab_page(tv, L()->tab_integr);
@@ -497,32 +530,48 @@ void ui_settings_open(void)
 
     /* --- System --- */
     p = tab_page(tv, L()->tab_system);
-    add_label(p, L()->theme_lbl, 0, 0);
-    s_dd_theme = add_dropdown(p, 0, 24, 180, NULL);
+    add_section(p, L()->sec_look, 0);
+    add_label(p, L()->theme_lbl, 0, 30);
+    s_dd_theme = add_dropdown(p, 0, 54, 180, NULL);
     lv_dropdown_set_options(s_dd_theme, theme_names_option_string());
     lv_dropdown_set_selected(s_dd_theme, cfg->theme < THEME_COUNT ? cfg->theme : 0);
-    add_label(p, L()->language_lbl, 220, 0);
-    s_dd_lang = add_dropdown(p, 220, 24, 180, NULL);
+    add_label(p, L()->language_lbl, 220, 30);
+    s_dd_lang = add_dropdown(p, 220, 54, 180, NULL);
     lv_dropdown_set_options(s_dd_lang, "English\nPolski");
     lv_dropdown_set_selected(s_dd_lang, cfg->lang == 1 ? 1 : 0);
 
-    add_label(p, L()->lbl_webpass, 440, 0);
-    s_ta_webpass = add_textarea(p, 440, 24, 300, cfg->web_pass, false);
+    add_section(p, L()->sec_screen, 122);
+    s_sw_night = add_switch(p, L()->night_lbl, 0, 154, cfg->night_enabled);
+    add_label(p, L()->night_from, 380, 148);
+    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_start_min / 60, cfg->night_start_min % 60);
+    s_ta_night_from = add_textarea(p, 380, 172, 110, buf, false);
+    add_label(p, L()->night_to, 510, 148);
+    snprintf(buf, sizeof(buf), "%02d:%02d", cfg->night_end_min / 60, cfg->night_end_min % 60);
+    s_ta_night_to = add_textarea(p, 510, 172, 110, buf, false);
+    add_label(p, L()->amb_idle_lbl, 0, 226);
+    snprintf(buf, sizeof(buf), "%d", cfg->ambient_idle_min);
+    s_ta_amb_idle = add_textarea(p, 630, 220, 110, buf, false);
 
-    lv_obj_t *sw_ota = add_switch(p, L()->ota_unlock, 0, 92, cfg->ota_enabled);
+    add_section(p, L()->sec_webpanel, 282);
+    s_ta_webpass = add_textarea(p, 0, 314, 360, cfg->web_pass, false);
+    add_hint(p, L()->lbl_webpass, 0, 360, 360);
+
+    add_section(p, L()->sec_updates, 394);
+    lv_obj_t *sw_ota = add_switch(p, L()->ota_unlock, 0, 426, cfg->ota_enabled);
     lv_obj_add_event_cb(sw_ota, ota_unlock_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_t *hint = add_label(p, L()->ota_hint, 0, 138);
+    lv_obj_t *hint = add_label(p, L()->ota_hint, 0, 472);
     lv_obj_set_style_text_font(hint, &font_pl_14, 0);
 
-    char netbuf[80] = "";
+    char netbuf[120] = "";
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip_info;
     if (netif != NULL && esp_netif_get_ip_info(netif, &ip_info) == ESP_OK && ip_info.ip.addr != 0) {
-        snprintf(netbuf, sizeof(netbuf), "IP: " IPSTR "    http://esp32flight.local", IP2STR(&ip_info.ip));
+        snprintf(netbuf, sizeof(netbuf), "IP: " IPSTR "    http://esp32flight.local    v%s",
+                 IP2STR(&ip_info.ip), esp_app_get_description()->version);
     } else {
-        snprintf(netbuf, sizeof(netbuf), "IP: -");
+        snprintf(netbuf, sizeof(netbuf), "IP: -    v%s", esp_app_get_description()->version);
     }
-    add_label(p, netbuf, 0, 200);
+    add_label(p, netbuf, 0, 520);
 
     /* keyboard on the top layer */
     s_kb = lv_keyboard_create(lv_layer_top());

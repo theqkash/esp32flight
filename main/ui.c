@@ -17,6 +17,7 @@
 #include "flags.h"
 #include "esp_timer.h"
 #include "runways.h"
+#include "airports.h"
 #include "flight_task.h"
 #include "regcountry.h"
 #include "routes.h"
@@ -1812,6 +1813,57 @@ void ui_set_update_available(bool available)
     }
 }
 
+static lv_obj_t *s_flyover_banner;
+
+static void flyover_banner_close(lv_timer_t *t)
+{
+    if (s_flyover_banner != NULL) {
+        lv_obj_del(s_flyover_banner);
+        s_flyover_banner = NULL;
+    }
+}
+
+static void flyover_banner_click(lv_event_t *e)
+{
+    if (s_flyover_banner != NULL) {
+        lv_obj_del(s_flyover_banner);
+        s_flyover_banner = NULL;
+    }
+}
+
+void ui_flyover_banner(const char *callsign, int eta_min, double cpa_km)
+{
+    if (!lvgl_port_lock(200 / portTICK_PERIOD_MS)) {
+        return;
+    }
+    if (s_flyover_banner != NULL) {
+        lv_obj_del(s_flyover_banner);
+        s_flyover_banner = NULL;
+    }
+    s_flyover_banner = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(s_flyover_banner, 460, 56);
+    lv_obj_align(s_flyover_banner, LV_ALIGN_TOP_MID, 0, 54);
+    lv_obj_set_style_bg_color(s_flyover_banner, lv_color_hex(0xb8860b), 0);
+    lv_obj_set_style_border_width(s_flyover_banner, 0, 0);
+    lv_obj_set_style_radius(s_flyover_banner, 10, 0);
+    lv_obj_set_style_shadow_width(s_flyover_banner, 16, 0);
+    lv_obj_set_style_shadow_opa(s_flyover_banner, LV_OPA_50, 0);
+    lv_obj_clear_flag(s_flyover_banner, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_flyover_banner, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_flyover_banner, flyover_banner_click, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *l = make_label(s_flyover_banner, &font_pl_16, lv_color_hex(0xffffff));
+    char cpa[64], txt[96];
+    snprintf(cpa, sizeof(cpa), L()->cpa_fmt, eta_min, cpa_km);
+    snprintf(txt, sizeof(txt), LV_SYMBOL_EYE_OPEN "  %s  \xC2\xB7  %s", callsign, cpa);
+    lv_label_set_text(l, txt);
+    lv_obj_center(l);
+
+    lv_timer_t *t = lv_timer_create(flyover_banner_close, 20000, NULL);
+    lv_timer_set_repeat_count(t, 1);
+    lvgl_port_unlock();
+}
+
 void ui_set_status_alert(bool alert)
 {
     if (s_status_label != NULL) {
@@ -2021,6 +2073,19 @@ static void render_detail(void)
             el += snprintf(extra + el, sizeof(extra) - el, "%s%s",
                            el ? "   \xC2\xB7   " : "", af);
         }
+    }
+    char apt[8];
+    int eta_min;
+    if (ac->has_pos &&
+        runways_approach(ac->lat, ac->lon, ac->track_deg, ac->alt_baro_ft,
+                         ac->baro_rate_fpm, ac->gs_kts, apt, sizeof(apt),
+                         &eta_min)) {
+        airport_t ai;
+        const char *where = airports_lookup(apt, &ai) && ai.city[0] ? ai.city : apt;
+        char ap[64];
+        snprintf(ap, sizeof(ap), L()->apr_fmt, where, eta_min);
+        el += snprintf(extra + el, sizeof(extra) - el, "%s%s",
+                       el ? "   \xC2\xB7   " : "", ap);
     }
     lv_label_set_text(s_extra_label, extra);
 

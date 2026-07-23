@@ -38,6 +38,12 @@ typedef struct {
     const char *hint_ntfy, *hint_mqtt, *hint_fa, *hint_webhook, *hint_ladsb;
     const char *lbl_webpass;
     const char *cat_word;        /* ADS-B emitter category label */
+    const char *apr_fmt;         /* approach: city/icao, minutes */
+    const char *lbl_fltapt, *lbl_altmin, *lbl_altmax;
+    const char *sec_traffic, *sec_watch, *sec_alerts;
+    const char *sec_look, *sec_screen, *sec_webpanel, *sec_updates;
+    const char *cpa_scope_opts;  /* dropdown: interesting-only / all */
+    const char *apt_mode_opts;   /* dropdown: show only / hide */
     const char *arr_fmt;         /* local arrival time, %s = HH:MM */
     const char *avg_word, *best_word;
     /* stats view */

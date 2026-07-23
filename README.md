@@ -143,7 +143,7 @@ Optional, with a user-provided free key: [FlightAware AeroAPI](https://www.fligh
 
 ## Hardware
 
-Waveshare ESP32-S3-Touch-LCD-7: ESP32-S3 (16 MB flash, 8 MB PSRAM), 800x480 RGB LCD (ST7262), GT911 capacitive touch, CH343 USB-UART. Available from the usual electronics shops; cases are printable or purchasable.
+Waveshare ESP32-S3-Touch-LCD-7: ESP32-S3 (16 MB flash, 8 MB PSRAM), 800x480 RGB LCD (ST7262), GT911 capacitive touch, CH343 USB-UART. Available from the usual electronics shops. Recommended printable case: [Waveshare 7inch display case on Printables](https://www.printables.com/model/1425850-waveshare-esp32-s3-7inch-capacitive-touch-display).
 
 ## Building from source
 

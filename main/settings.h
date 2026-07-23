@@ -25,10 +25,15 @@ typedef struct {
     char   local_adsb[96];  /* dump1090/readsb aircraft.json URL (LAN receiver) */
     char   web_pass[33];    /* HTTP Basic Auth for the web panel, empty = open */
     bool   cpa_alerts;      /* push when an interesting aircraft will pass close */
+    bool   cpa_all;         /* flyover alerts for every aircraft, not only interesting */
     bool   night_enabled;
     int    night_start_min; /* minutes from midnight, local */
     int    night_end_min;
     int    ambient_idle_min;  /* full-screen map screensaver after N idle min, 0=off */
+    char   filter_airport[8]; /* airport filter (ICAO/IATA), empty=off */
+    bool   filter_apt_exclude; /* false: show only that airport, true: hide it */
+    int    alt_min_ft;        /* altitude band filter, 0 = no bound */
+    int    alt_max_ft;
 } settings_t;
 
 /* Load from NVS (menuconfig values as first-boot defaults). Call once at

@@ -203,7 +203,10 @@ static void maybe_notify_cpa(const aircraft_list_t *list, double home_lat, doubl
 
     for (int i = 0; i < list->count; i++) {
         const aircraft_t *ac = &list->ac[i];
-        if (!ac->has_pos || ac->on_ground ||
+        if (!ac->has_pos || ac->on_ground) {
+            continue;
+        }
+        if (!settings_get()->cpa_all &&
             !flight_is_interesting(ac, settings_get()->watch_regs)) {
             continue;
         }
@@ -234,6 +237,8 @@ static void maybe_notify_cpa(const aircraft_list_t *list, double home_lat, doubl
                  ac->type_icao[0] ? ac->type_icao : "?",
                  (int)(t_s / 60), cpa_km, ac->alt_baro_ft);
         notify_send("esp32flight: flyover incoming", msg);
+        ui_flyover_banner(ac->callsign[0] ? ac->callsign : ac->hex,
+                          (int)(t_s / 60), cpa_km);
     }
 }
 
@@ -603,6 +608,27 @@ static void flight_task(void *arg)
                         break;  /* one lookup per cycle */
                     }
                 }
+            }
+
+            /* airport filter runs after the route lookups above, because it
+             * can only judge flights whose route is already known */
+            const char *fapt = settings_get()->filter_airport;
+            if (fapt[0] != '\0') {
+                int w = 0;
+                bool excl = settings_get()->filter_apt_exclude;
+                for (int i = 0; i < list->count; i++) {
+                    const route_info_t *rt = routes_get_cached(list->ac[i].callsign);
+                    bool match = rt != NULL && rt->valid &&
+                        (strcasecmp(rt->origin.icao, fapt) == 0 ||
+                         strcasecmp(rt->origin.iata, fapt) == 0 ||
+                         strcasecmp(rt->destination.icao, fapt) == 0 ||
+                         strcasecmp(rt->destination.iata, fapt) == 0);
+                    /* "show only": unknown routes hidden; "hide": kept */
+                    if (excl ? !match : match) {
+                        list->ac[w++] = list->ac[i];
+                    }
+                }
+                list->count = w;
             }
 
             stats_update(list);

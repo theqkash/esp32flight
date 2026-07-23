@@ -99,6 +99,8 @@ static const char INDEX_HTML[] =
 ".tab{background:#141b2d;color:#8794ad;font-weight:600}"
 ".tab.on{background:#4da3ff;color:#06101f}"
 ".tabpane{display:none}.tabpane.on{display:block}"
+".cfgcard{background:#10182b;border:1px solid #1d2942;border-radius:12px;padding:14px 16px;margin-top:14px}"
+".cfgcard h4{margin:0 0 10px;color:#4da3ff;font-size:12px;text-transform:uppercase;letter-spacing:.7px}"
 ".api dt{color:#4da3ff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:14px;margin-top:16px}"
 ".api dd{margin:4px 0 0;color:#8794ad;font-size:13px;line-height:1.5}"
 "code{background:#141b2d;border-radius:6px;padding:1px 5px;font-size:12px;color:#c7cfdd}"
@@ -124,51 +126,65 @@ static const char INDEX_HTML[] =
 "<div class='dim' style='margin-top:8px'>"
 "<a href='/screen.bmp'>screenshot</a> &middot; <a href='/api/state'>api</a> &middot; <a href='/api/log' download='esp32flight-log.tsv'>log CSV</a> &middot; <a href='/metrics'>metrics</a> &middot; "
 "<a href='https://github.com/theqkash/esp32flight'>github.com/theqkash/esp32flight</a></div></div>"
-"<div class='sect'><h3>Device settings</h3><div class='grid2'>"
-"<div class='sech'>Network</div>"
+"<div class='sect'><h3>Device settings</h3>"
+"<div class='cfgcard'><h4>Network</h4><div class='grid2'>"
 "<div><label>Wi-Fi SSID</label><input id='c_ssid'>"
 "<div class='help'>2.4 GHz networks only (ESP32 has no 5 GHz radio).</div></div>"
 "<div><label>Wi-Fi password</label><input id='c_pass' type='password'>"
 "<div class='help'>Leave empty to keep the current password.</div></div>"
 "<div><label>Panel password</label><input id='c_web_pass' type='password' placeholder='empty = keep current'>"
-"<div class='help'>Protects this panel and the whole API (HTTP Basic Auth, user: admin). Leave empty to keep the current one. To remove the password, clear the field in the on-device settings, System tab.</div></div>"
-"<div class='sech'>Location and filters</div>"
+"<div class='help'>Protects this panel and the whole API (HTTP Basic Auth, user: admin). To remove it, clear the field in the on-device settings, System tab.</div></div>"
+"</div></div>"
+"<div class='cfgcard'><h4>Location</h4><div class='grid2'>"
 "<div><label>Location mode</label><select id='c_fixed'><option value='0'>auto (IP geolocation)</option><option value='1'>fixed coordinates</option></select>"
 "<div class='help'>Auto locates the device by its internet address at boot. Pick fixed to watch a different area.</div></div>"
 "<div><label>Latitude</label><input id='c_lat' type='number' step='0.0001'></div>"
 "<div><label>Longitude</label><input id='c_lon' type='number' step='0.0001'></div>"
 "<div><label>Radius (nautical miles, 5-250)</label><input id='c_radius_nm' type='number'>"
 "<div class='help'>Search radius around the location. 54 nm is about 100 km.</div></div>"
+"</div></div>"
+"<div class='cfgcard'><h4>Filters</h4><div class='grid2'>"
 "<div><label>Hide ground traffic</label><select id='c_hide_ground'><option value='0'>no</option><option value='1'>yes</option></select>"
 "<div class='help'>Hides aircraft taxiing or parked at nearby airports.</div></div>"
 "<div><label>Airline flights only</label><select id='c_airline_only'><option value='0'>no</option><option value='1'>yes</option></select>"
-"<div class='help'>Hides private planes, air taxis and helicopters. Keeps scheduled airline traffic.</div></div>"
+"<div class='help'>Hides private planes, air taxis and helicopters.</div></div>"
+"<div><label>Altitude from (ft, 0 = off)</label><input id='c_alt_min_ft' type='number'></div>"
+"<div><label>Altitude to (ft, 0 = off)</label><input id='c_alt_max_ft' type='number'></div>"
+"<div><label>Airport (ICAO or IATA)</label><input id='c_filter_airport' placeholder='KRK'>"
+"<div class='help'>Flights departing from or arriving at this airport, filtered by the mode on the right. Applies once a flight's route is resolved.</div></div>"
+"<div><label>Airport filter mode</label><select id='c_filter_apt_exclude'><option value='0'>show only this airport</option><option value='1'>hide this airport</option></select></div>"
+"</div></div>"
+"<div class='cfgcard'><h4>Alerts</h4><div class='grid2'>"
+"<div><label>ntfy.sh topic (push to your phone)</label><input id='c_ntfy_topic' placeholder='my-secret-esp32flight-8341'>"
+"<div class='help'>Free push notifications, no account needed. 1) Install the ntfy app (ntfy.sh). 2) Subscribe to a topic name you invent. 3) Enter the same name here. Alerts: emergency squawks, watchlist, flyovers.</div></div>"
+"<div><label>Flyover (CPA) alerts</label><select id='c_cpa_alerts'><option value='0'>off</option><option value='1'>on</option></select>"
+"<div class='help'>Screen banner plus push a few minutes before an aircraft passes within 5 km of you.</div></div>"
+"<div><label>Flyover alert scope</label><select id='c_cpa_all'><option value='0'>interesting aircraft only</option><option value='1'>all aircraft</option></select>"
+"<div class='help'>Interesting = military, notable heavies and your watchlist (default). All = every aircraft; can be noisy under a busy approach path.</div></div>"
 "<div><label>Watchlist</label><input id='c_watch_regs' placeholder='SP-LR,RCH,A388'>"
-"<div class='help'>Comma-separated registration or callsign prefixes to highlight in gold and push-notify. Military and famous heavies (A380, AN-124, C-17...) are always highlighted.</div></div>"
-"<div class='sech'>Display</div>"
+"<div class='help'>Comma-separated registration or callsign prefixes: highlighted in gold and push-notified.</div></div>"
+"<div><label>Webhook URL</label><input id='c_webhook_url' placeholder='https://n8n.example.com/hook/abc'>"
+"<div class='help'>Every alert POSTs JSON {source, title, message} to this address (Node-RED, n8n, Discord/Slack bridges).</div></div>"
+"</div></div>"
+"<div class='cfgcard'><h4>Display</h4><div class='grid2'>"
 "<div><label>Theme</label><select id='c_theme'><option value='0'>Dark</option><option value='1'>Light</option><option value='2'>Black</option><option value='3'>Nord</option><option value='4'>Solarized</option><option value='5'>Purple</option><option value='6'>Forest</option></select></div>"
 "<div><label>Language</label><select id='c_lang'><option value='0'>English</option><option value='1'>Polski</option></select></div>"
 "<div><label>Map screensaver after (minutes, 0 = off)</label><input id='c_ambient_idle_min' type='number'>"
-"<div class='help'>After this many idle minutes the device shows a full-screen map with all nearby flights, clock and weather. Tap to return.</div></div>"
+"<div class='help'>Full-screen map of your area after this many idle minutes. Tap to return.</div></div>"
 "<div><label>Night mode</label><select id='c_night_enabled'><option value='0'>off</option><option value='1'>on</option></select>"
-"<div class='help'>During the quiet hours below the backlight turns off after a few extra idle minutes. First tap wakes the screen.</div></div>"
+"<div class='help'>Backlight turns off during the quiet hours below; first tap wakes the screen.</div></div>"
 "<div><label>Night from</label><input id='c_night_start' type='time'></div>"
 "<div><label>Night until</label><input id='c_night_end' type='time'></div>"
-"<div class='sech'>Notifications</div>"
-"<div><label>ntfy.sh topic (push to your phone)</label><input id='c_ntfy_topic' placeholder='my-secret-esp32flight-8341'>"
-"<div class='help'>Free push notifications, no account needed. 1) Install the ntfy app (ntfy.sh). 2) Invent a unique topic name and subscribe to it in the app. 3) Enter the same name here. You will get alerts for emergency squawks (7700), watchlist aircraft and predicted flyovers.</div></div>"
-"<div><label>Flyover (CPA) alerts</label><select id='c_cpa_alerts'><option value='0'>off</option><option value='1'>on</option></select>"
-"<div class='help'>Predicts when an interesting aircraft will pass within 5 km of you and notifies minutes before it happens, so you can step outside in time.</div></div>"
-"<div><label>Webhook URL</label><input id='c_webhook_url' placeholder='https://n8n.example.com/hook/abc'>"
-"<div class='help'>On every alert the device POSTs JSON {source, title, message} to this address. Works with Node-RED, n8n, Discord/Slack bridges and similar.</div></div>"
-"<div class='sech'>Integrations</div>"
+"</div></div>"
+"<div class='cfgcard'><h4>Integrations</h4><div class='grid2'>"
 "<div><label>MQTT broker (Home Assistant)</label><input id='c_mqtt_uri' placeholder='mqtt://user:pass@192.168.1.10:1883'>"
-"<div class='help'>Connects to your MQTT broker. In Home Assistant the sensors appear automatically via MQTT discovery: nearest aircraft, aircraft count, session unique count and nearest distance.</div></div>"
+"<div class='help'>Sensors appear automatically in Home Assistant via MQTT discovery.</div></div>"
 "<div><label>FlightAware AeroAPI key</label><input id='c_fa_key'>"
-"<div class='help'>Optional. Adds commercial flight numbers (FR4238) next to radio callsigns (RYR638T). Create a free Personal key at flightaware.com/aeroapi; the free monthly credit is plenty because results are cached.</div></div>"
+"<div class='help'>Optional. Adds flight numbers (FR4238) and live routes. Free Personal key: flightaware.com/aeroapi.</div></div>"
 "<div><label>Local ADS-B receiver (dump1090/readsb)</label><input id='c_local_adsb' placeholder='http://192.168.1.50:8080/data/aircraft.json'>"
-"<div class='help'>If you run your own receiver (e.g. RTL-SDR on a Raspberry Pi), point this at its aircraft.json. The device then uses your antenna instead of internet APIs: faster updates, no limits, works without the cloud. Falls back to the internet automatically when unreachable.</div></div>"
-"</div><div style='margin-top:14px'><button id='cfgsave' onclick='saveCfg()' disabled>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
+"<div class='help'>Reads aircraft straight from your antenna instead of internet APIs; falls back automatically.</div></div>"
+"</div></div>"
+"<div style='margin-top:14px'><button id='cfgsave' onclick='saveCfg()' disabled>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
 "</div>"
 "<div id='t_hist' class='tabpane'>"
 "<div class='sect'><h3>Spotting history</h3>"
@@ -243,7 +259,7 @@ static const char INDEX_HTML[] =
 "const n=d.net||{};"
 "document.getElementById('hdr').innerHTML=`${d.city||''} (${(+d.lat).toFixed(3)}, ${(+d.lon).toFixed(3)}), radius ${d.radius_km} km${w}`;+((d.stats&&d.stats.metar)?`<br>${d.stats.metar}`:'');"
 "const s=d.stats||{};document.getElementById('cards').innerHTML="
-"`<div class='card'>Network<b>${n.ssid||'-'} ${n.rssi||''} dBm</b>${n.ip||''} \\u00B7 ${n.mdns||''}${n.heap_int?` \\u00B7 RAM ${Math.round(n.heap_int/1024)} KB`:''}</div>`+"
+"`<div class='card'>Network<b>${n.ssid||'-'} ${n.rssi||''} dBm</b>${n.ip||''} \\u00B7 ${n.mdns||''}${n.heap_int?` \\u00B7 RAM ${Math.round(n.heap_int/1024)} KB`:''}${s.version?` \\u00B7 v${s.version}`:''}</div>`+"
 "`<div class='card'>Unique aircraft<b>${s.unique_aircraft||0}</b></div>`+"
 "`<div class='card'>Max altitude<b>${(s.max_alt_ft||0).toLocaleString()} ft</b></div>`+"
 "`<div class='card'>Fastest<b>${s.max_gs_kt||0} kt</b></div>`+"
@@ -271,10 +287,13 @@ static const char INDEX_HTML[] =
 "document.getElementById('c_night_end').value=mm(c.night_end_min||390);"
 "document.getElementById('cfgsave').disabled=false;}catch(e){}}"
 "async function saveCfg(){const c={};"
-"['ssid','pass','web_pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb'].forEach(k=>{const v=document.getElementById('c_'+k).value;if((k!=='pass'&&k!=='web_pass')||v)c[k]=v;});"
+"['ssid','pass','web_pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb','filter_airport'].forEach(k=>{const v=document.getElementById('c_'+k).value;if((k!=='pass'&&k!=='web_pass')||v)c[k]=v;});"
 "c.cpa_alerts=document.getElementById('c_cpa_alerts').value==='1';"
+"c.cpa_all=document.getElementById('c_cpa_all').value==='1';"
+"c.filter_apt_exclude=document.getElementById('c_filter_apt_exclude').value==='1';"
 "c.night_enabled=document.getElementById('c_night_enabled').value==='1';"
 "c.ambient_idle_min=+document.getElementById('c_ambient_idle_min').value;"
+"c.alt_min_ft=+document.getElementById('c_alt_min_ft').value;c.alt_max_ft=+document.getElementById('c_alt_max_ft').value;"
 "const pm=id=>{const v=document.getElementById(id).value.split(':');return (+v[0])*60+(+v[1]||0);};"
 "c.night_start_min=pm('c_night_start');c.night_end_min=pm('c_night_end');"
 "c.fixed=document.getElementById('c_fixed').value==='1';"
@@ -408,10 +427,15 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddStringToObject(root, "local_adsb", c->local_adsb);
     cJSON_AddBoolToObject(root, "web_pass_set", c->web_pass[0] != '\0');
     cJSON_AddBoolToObject(root, "cpa_alerts", c->cpa_alerts);
+    cJSON_AddBoolToObject(root, "cpa_all", c->cpa_all);
     cJSON_AddBoolToObject(root, "night_enabled", c->night_enabled);
     cJSON_AddNumberToObject(root, "night_start_min", c->night_start_min);
     cJSON_AddNumberToObject(root, "night_end_min", c->night_end_min);
     cJSON_AddNumberToObject(root, "ambient_idle_min", c->ambient_idle_min);
+    cJSON_AddStringToObject(root, "filter_airport", c->filter_airport);
+    cJSON_AddBoolToObject(root, "filter_apt_exclude", c->filter_apt_exclude);
+    cJSON_AddNumberToObject(root, "alt_min_ft", c->alt_min_ft);
+    cJSON_AddNumberToObject(root, "alt_max_ft", c->alt_max_ft);
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     httpd_resp_set_type(req, "application/json");
@@ -452,6 +476,7 @@ static esp_err_t config_post(httpd_req_t *req)
     set_str_field(root, "webhook_url", c->webhook_url, sizeof(c->webhook_url));
     set_str_field(root, "local_adsb", c->local_adsb, sizeof(c->local_adsb));
     set_str_field(root, "web_pass", c->web_pass, sizeof(c->web_pass));
+    set_str_field(root, "filter_airport", c->filter_airport, sizeof(c->filter_airport));
     const cJSON *j;
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "fixed")))) {
         c->use_fixed_loc = cJSON_IsTrue(j);
@@ -465,6 +490,12 @@ static esp_err_t config_post(httpd_req_t *req)
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "cpa_alerts")))) {
         c->cpa_alerts = cJSON_IsTrue(j);
     }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "cpa_all")))) {
+        c->cpa_all = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "filter_apt_exclude")))) {
+        c->filter_apt_exclude = cJSON_IsTrue(j);
+    }
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "night_enabled")))) {
         c->night_enabled = cJSON_IsTrue(j);
     }
@@ -476,6 +507,12 @@ static esp_err_t config_post(httpd_req_t *req)
     }
     if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "ambient_idle_min")))) {
         c->ambient_idle_min = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "alt_min_ft")))) {
+        c->alt_min_ft = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "alt_max_ft")))) {
+        c->alt_max_ft = (int)j->valuedouble;
     }
     if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "lat")))) {
         c->lat = j->valuedouble;

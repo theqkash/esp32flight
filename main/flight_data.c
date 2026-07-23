@@ -191,6 +191,11 @@ static esp_err_t parse_point_response(const char *json, double lat, double lon,
         if (st->hide_private && !flight_is_airline(&tmp)) {
             continue;
         }
+        if (!tmp.on_ground &&
+            ((st->alt_min_ft > 0 && tmp.alt_baro_ft < st->alt_min_ft) ||
+             (st->alt_max_ft > 0 && tmp.alt_baro_ft > st->alt_max_ft))) {
+            continue;
+        }
         if (out->count < MAX_AIRCRAFT) {
             out->ac[out->count++] = tmp;
         } else {
