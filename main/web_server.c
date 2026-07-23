@@ -643,12 +643,18 @@ static esp_err_t metrics_get(httpd_req_t *req)
              "esp32flight_nearest_km %.1f\n"
              "esp32flight_heap_free_bytes %u\n"
              "esp32flight_internal_heap_free_bytes %u\n"
+             "esp32flight_internal_heap_total_bytes %u\n"
              "esp32flight_internal_heap_largest_block %u\n"
+             "esp32flight_psram_free_bytes %u\n"
+             "esp32flight_psram_total_bytes %u\n"
              "esp32flight_uptime_seconds %lld\n",
              count, unique, alt, nearest,
              (unsigned)esp_get_free_heap_size(),
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_total_size(MALLOC_CAP_INTERNAL),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+             (unsigned)heap_caps_get_total_size(MALLOC_CAP_SPIRAM),
              (long long)(esp_timer_get_time() / 1000000LL));
     httpd_resp_set_type(req, "text/plain; version=0.0.4");
     return httpd_resp_send(req, out, HTTPD_RESP_USE_STRLEN);
