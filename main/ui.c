@@ -100,10 +100,18 @@ static double        s_emb_bbox[4];       /* latmin, latmax, lonmin, lonmax */
 /* Full-screen ambient screensaver (map + planes + clock + weather) */
 static lv_obj_t *s_amb;
 static lv_obj_t *s_amb_img;
-static lv_obj_t *s_amb_planes[MAX_SHOWN];
+static lv_obj_t *s_amb_planes[MAX_AIRCRAFT];
 static lv_obj_t *s_amb_lbls[MAX_SHOWN];
 static lv_obj_t *s_amb_clock, *s_amb_wx;
 static lv_obj_t *s_amb_ring, *s_amb_home;
+typedef struct {
+    float lat, lon, track;
+    int   alt_ft;
+    bool  ground;
+} amb_target_t;
+static amb_target_t s_all[MAX_AIRCRAFT];
+static int s_all_count;
+
 static uint16_t *s_amb_tiles;
 static lv_img_dsc_t s_amb_tiles_dsc;
 static tile_view_t s_amb_view;
@@ -1135,9 +1143,30 @@ static void render_ambient(void)
             lv_obj_clear_flag(s_amb_home, LV_OBJ_FLAG_HIDDEN);
         }
     }
+    /* every aircraft in range gets a sprite */
+    for (int i = 0; i < MAX_AIRCRAFT; i++) {
+        if (i >= s_all_count) {
+            lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        lv_coord_t x, y;
+        amb_proj(s_all[i].lat, s_all[i].lon, &x, &y);
+        if (x < -14 || x > 814 || y < -14 || y > 494) {
+            lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        lv_obj_set_pos(s_amb_planes[i], x - 14, y - 14);
+        lv_img_set_angle(s_amb_planes[i], (int)(s_all[i].track * 10));
+        lv_obj_set_style_img_recolor(s_amb_planes[i],
+                                     alt_color(s_all[i].alt_ft, s_all[i].ground), 0);
+        lv_obj_clear_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    /* info bubbles only for the nearest ones, to keep the map readable */
+    lv_area_t placed[MAX_SHOWN];
+    int nplaced = 0;
     for (int i = 0; i < MAX_SHOWN; i++) {
         if (i >= s_shown_count || !s_shown[i].ac.has_pos) {
-            lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(s_amb_lbls[i], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
@@ -1145,15 +1174,9 @@ static void render_ambient(void)
         lv_coord_t x, y;
         amb_proj(ac->lat, ac->lon, &x, &y);
         if (x < -14 || x > 814 || y < -14 || y > 494) {
-            lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(s_amb_lbls[i], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
-        lv_obj_set_pos(s_amb_planes[i], x - 14, y - 14);
-        lv_img_set_angle(s_amb_planes[i], (int)(ac->track_deg * 10));
-        lv_obj_set_style_img_recolor(s_amb_planes[i],
-                                     alt_color(ac->alt_baro_ft, ac->on_ground), 0);
-        lv_obj_clear_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
 
         const route_info_t *rt = s_shown[i].route.callsign[0] && s_shown[i].route.valid
                                      ? &s_shown[i].route : NULL;
@@ -1178,6 +1201,21 @@ static void render_ambient(void)
         if (ly > 440) {
             ly = 440;
         }
+        /* skip bubbles that would overlap one already on screen */
+        lv_area_t box = { lx, ly, lx + 112, ly + (rt != NULL ? 38 : 20) };
+        bool clash = false;
+        for (int p = 0; p < nplaced; p++) {
+            if (box.x1 < placed[p].x2 && box.x2 > placed[p].x1 &&
+                box.y1 < placed[p].y2 && box.y2 > placed[p].y1) {
+                clash = true;
+                break;
+            }
+        }
+        if (clash) {
+            lv_obj_add_flag(s_amb_lbls[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        placed[nplaced++] = box;
         lv_obj_set_pos(s_amb_lbls[i], lx, ly);
         lv_obj_clear_flag(s_amb_lbls[i], LV_OBJ_FLAG_HIDDEN);
     }
@@ -1245,8 +1283,13 @@ static void amb_show(void)
     lv_obj_clear_flag(s_amb_home, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(s_amb_home, LV_OBJ_FLAG_HIDDEN);
 
-    for (int i = 0; i < MAX_SHOWN; i++) {
+    lv_img_set_antialias(s_amb_img, true);
+
+    for (int i = 0; i < MAX_AIRCRAFT; i++) {
         s_amb_planes[i] = plane_img(s_amb);
+        lv_obj_add_flag(s_amb_planes[i], LV_OBJ_FLAG_HIDDEN);
+    }
+    for (int i = 0; i < MAX_SHOWN; i++) {
         s_amb_lbls[i] = make_label(s_amb, &font_pl_14, COL_TEXT);
         lv_obj_set_style_bg_color(s_amb_lbls[i], lv_color_hex(0x000000), 0);
         lv_obj_set_style_bg_opa(s_amb_lbls[i], LV_OPA_50, 0);
@@ -1842,6 +1885,18 @@ void ui_update(const aircraft_list_t *list)
 {
     /* Snapshot aircraft + routes so touch callbacks never race the fetcher. */
     flight_stats_get(&s_stats_snap);
+    s_all_count = 0;
+    for (int i = 0; i < list->count && i < MAX_AIRCRAFT; i++) {
+        if (!list->ac[i].has_pos) {
+            continue;
+        }
+        amb_target_t *t = &s_all[s_all_count++];
+        t->lat = (float)list->ac[i].lat;
+        t->lon = (float)list->ac[i].lon;
+        t->track = list->ac[i].track_deg;
+        t->alt_ft = list->ac[i].alt_baro_ft;
+        t->ground = list->ac[i].on_ground;
+    }
     s_shown_count = list->count < MAX_SHOWN ? list->count : MAX_SHOWN;
     for (int i = 0; i < s_shown_count; i++) {
         s_shown[i].ac = list->ac[i];

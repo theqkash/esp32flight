@@ -6,6 +6,7 @@
 #include "cJSON.h"
 #include "esp_log.h"
 #include "http_util.h"
+#include "esp_http_client.h"
 
 static const char *TAG = "airlines";
 
@@ -53,7 +54,15 @@ const char *airlines_fetch(const char *icao)
     }
     char url[80];
     snprintf(url, sizeof(url), "https://api.adsbdb.com/v0/airline/%s", icao);
-    if (http_get_to_buffer(url, buf, 4096, NULL) == ESP_OK) {
+    esp_err_t err = http_get_to_buffer(url, buf, 4096, NULL);
+    if (err != ESP_OK && err != ESP_ERR_HTTP_BASE + 404) {
+        /* transport failure: forget the slot so the next cycle retries */
+        slot->used = false;
+        slot->icao[0] = '\0';
+        free(buf);
+        return NULL;
+    }
+    if (err == ESP_OK) {
         cJSON *root = cJSON_Parse(buf);
         if (root != NULL) {
             const cJSON *resp = cJSON_GetObjectItem(root, "response");

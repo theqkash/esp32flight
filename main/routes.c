@@ -10,10 +10,12 @@
 #include "esp_timer.h"
 #include "geo_math.h"
 #include "http_util.h"
+#include "esp_http_client.h"
 #include "tz.h"
 
 /* Negative entries retry after this long: route DBs fill in during the day */
 #define NEGATIVE_TTL_MS (30LL * 60 * 1000)
+#define TRANSIENT_RETRY_MS (60LL * 1000)   /* failed lookup, not an authoritative miss */
 
 static const char *TAG = "routes";
 
@@ -290,6 +292,10 @@ const route_info_t *routes_fetch(const char *callsign,
     char url[96];
     snprintf(url, sizeof(url), "https://api.adsbdb.com/v0/callsign/%s", callsign);
     esp_err_t err = http_get_to_buffer(url, buf, 8192, NULL);
+    /* 200 (parsed below) and 404 are authoritative answers; timeouts,
+     * rate limits and server errors are not - those must retry soon
+     * instead of poisoning the negative cache for half an hour. */
+    bool authoritative = (err == ESP_OK) || (err == ESP_ERR_HTTP_BASE + 404);
 
     route_info_t *slot = cache_slot(callsign);   /* negative by default */
     if (slot == NULL) {
@@ -350,7 +356,11 @@ const route_info_t *routes_fetch(const char *callsign,
                                                    slot->destination.lat, slot->destination.lon,
                                                    &slot->destination.tz_offset_s);
     }
-    if (!slot->valid) {
+    if (!slot->valid && !authoritative) {
+        slot->fetched_ms -= NEGATIVE_TTL_MS - TRANSIENT_RETRY_MS;
+        ESP_LOGW(TAG, "%s: lookup failed (0x%x), retry in %ds", callsign,
+                 (unsigned)err, (int)(TRANSIENT_RETRY_MS / 1000));
+    } else if (!slot->valid) {
         ESP_LOGI(TAG, "no route for %s (negative-cached)", callsign);
     } else {
         ESP_LOGI(TAG, "%s: %s -> %s (%s)", callsign,

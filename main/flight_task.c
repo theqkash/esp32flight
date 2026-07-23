@@ -568,7 +568,7 @@ static void flight_task(void *arg)
                 if (cs[0] != '\0' && routes_get_cached(cs) == NULL) {
                     routes_fetch(cs, list->ac[i].lat, list->ac[i].lon, list->ac[i].has_pos);
                     lookups++;
-                    vTaskDelay(pdMS_TO_TICKS(200));
+                    vTaskDelay(pdMS_TO_TICKS(250));
                 }
             }
 
@@ -586,7 +586,7 @@ static void flight_task(void *arg)
                 char code[4] = { cs[0], cs[1], cs[2], '\0' };
                 if (airlines_get_cached(code) == NULL) {
                     airlines_fetch(code);
-                    if (++alookups >= 4) {
+                    if (++alookups >= 2) {
                         break;
                     }
                 }
