@@ -955,6 +955,10 @@ static void build_radar_panel(lv_obj_t *scr)
     lv_obj_set_style_radius(s_radar_info, 6, 0);
     lv_label_set_text(s_radar_info, "");
 
+    lv_obj_t *rattr = make_label(s_radar_panel, &font_pl_14, COL_DIM);
+    lv_label_set_text(rattr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
+    lv_obj_align(rattr, LV_ALIGN_BOTTOM_RIGHT, -6, -2);
+
     s_radar_range = make_label(s_radar_panel, &font_pl_14, COL_DIM);
     lv_obj_align(s_radar_range, LV_ALIGN_BOTTOM_RIGHT, -10, -6);
     lv_label_set_text(s_radar_range, "");
@@ -1474,6 +1478,10 @@ static void amb_show(void)
     lv_obj_set_style_pad_all(s_amb_clock, 8, 0);
     lv_obj_align(s_amb_clock, LV_ALIGN_TOP_LEFT, 10, 8);
     lv_label_set_text(s_amb_clock, "");
+
+    lv_obj_t *attr = make_label(s_amb, &font_pl_14, lv_color_hex(0x777777));
+    lv_label_set_text(attr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
+    lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -8, -4);
 
     s_amb_wx = make_label(s_amb, &font_pl_16, lv_color_hex(0xdddddd));
     lv_obj_set_style_bg_color(s_amb_wx, lv_color_hex(0x000000), 0);

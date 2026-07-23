@@ -142,13 +142,19 @@ network. `curl -u admin:PASSWORD ...` once it is set.
 | What | Source |
 |---|---|
 | Aircraft positions (ADS-B) | [airplanes.live](https://airplanes.live), fallback [adsb.lol](https://adsb.lol) |
-| Routes + airlines | [adsbdb.com](https://www.adsbdb.com), fallback [hexdb.io](https://hexdb.io) |
-| Geocoding + weather | [Open-Meteo](https://open-meteo.com) |
+| Routes + airlines | [adsbdb.com](https://www.adsbdb.com), [adsb.lol routeset](https://api.adsb.lol/docs), [hexdb.io](https://hexdb.io) |
+| Map tiles | [CARTO basemaps](https://carto.com/basemaps) with data (c) [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors |
+| Geocoding, weather, timezones | [Open-Meteo](https://open-meteo.com) |
+| METAR | [aviationweather.gov](https://aviationweather.gov) (NOAA) |
 | IP geolocation | [ip-api.com](https://ip-api.com) |
 | Aircraft photos | [planespotters.net](https://www.planespotters.net) via adsbdb |
 | Airline logos | [sexym0nk3y/airline-logos](https://github.com/sexym0nk3y/airline-logos), [Jxck-S/airline-logos](https://github.com/Jxck-S/airline-logos) |
+| Country flags | [flagcdn.com](https://flagpedia.net) (bundled) |
 | Airport database | [OurAirports](https://ourairports.com) (bundled, public domain) |
-| World map | NASA Blue Marble |
+| Offline world map | NASA Blue Marble |
+
+Optional, with a user-provided free key: [FlightAware AeroAPI](https://www.flightaware.com/commercial/aeroapi/)
+for commercial flight numbers and live routes.
 
 Routes resolved from callsigns are **position-validated** (great-circle
 plausibility check) and cross-checked against the second source, because

@@ -259,6 +259,12 @@ static void build_content(void)
     lv_label_set_text(tl, title);
     lv_obj_set_pos(tl, 16, 12);
 
+    lv_obj_t *attr = lv_label_create(s_overlay);
+    lv_obj_set_style_text_font(attr, &font_pl_14, 0);
+    lv_obj_set_style_text_color(attr, lv_color_hex(0x777777), 0);
+    lv_label_set_text(attr, "\xC2\xA9 OSM \xC2\xB7 \xC2\xA9 CARTO");
+    lv_obj_align(attr, LV_ALIGN_BOTTOM_RIGHT, -10, -4);
+
     lv_obj_t *btn_close = lv_btn_create(s_overlay);
     lv_obj_set_size(btn_close, 52, 40);
     lv_obj_align(btn_close, LV_ALIGN_TOP_RIGHT, -12, 8);
