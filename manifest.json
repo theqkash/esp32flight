@@ -1,7 +1,7 @@
 {
   "name": "esp32flight",
   "version": "0.3.1",
-  "new_install_prompt_erase": false,
+  "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
