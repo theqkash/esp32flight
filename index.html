@@ -48,8 +48,16 @@
        boards, the hardware is detected at boot.</p>
     <div class="btnrow">
       <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
-      <span class="dim">Chrome or Edge on desktop required (Web Serial)</span>
+      <span class="dim">16 MB boards: Waveshare 7 and most others</span>
     </div>
+    <div class="btnrow">
+      <esp-web-install-button manifest="manifest-8mb.json"></esp-web-install-button>
+      <span class="dim">8 MB boards: Waveshare 4.3 (module marked N8R8)</span>
+    </div>
+    <p class="dim">Chrome or Edge on desktop required (Web Serial). Not sure which
+       flash size you have? Check the marking on the metal module: N16R8 = 16 MB,
+       N8R8 = 8 MB. The 8 MB build bundles the most common airline logos and
+       fetches the rest on demand.</p>
     <p class="dim">If no port shows up on Windows, install the
        <a href="https://www.wch-ic.com/downloads/CH343SER_ZIP.html">WCH CH343 driver</a>
        (Waveshare) or the CH340 driver (Guition) and try again.
@@ -62,7 +70,7 @@
       <div class="board"><b>Waveshare ESP32-S3-Touch-LCD-7</b>
         <span>7" 800x480, the original target</span></div>
       <div class="board"><b>Waveshare ESP32-S3-Touch-LCD-4.3</b>
-        <span>4.3" sibling, same firmware (also 4.3B and 5)</span></div>
+        <span>4.3" sibling (also 4.3B and 5); N8R8 modules use the 8 MB build</span></div>
       <div class="board"><b>Guition JC8048W550</b>
         <span>5" 800x480 budget board, autodetected</span></div>
       <div class="board"><b>Android 5.0+</b>
