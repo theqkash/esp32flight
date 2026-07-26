@@ -1,5 +1,5 @@
 {
-  "name": "esp32flight (8 MB boards)",
+  "name": "esp32flight (Guition)",
   "version": "0.3.2",
   "new_install_prompt_erase": true,
   "builds": [
@@ -7,7 +7,7 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/esp32flight-v0.3.2-8mb-full.bin",
+          "path": "firmware/esp32flight-v0.3.2-guition-full.bin",
           "offset": 0
         }
       ]

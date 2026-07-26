@@ -41,11 +41,11 @@
   <div class="tag">Standalone desk flight radar. No server, no subscriptions, no API keys.</div>
 
   <div class="card">
-    <h2>Install from your browser <span class="pill">v0.3.1</span></h2>
+    <h2>Install from your browser <span class="pill">v0.3.2</span></h2>
     <p>Connect the board over USB, click Install and pick the serial port.
        The full firmware (16 MB including airline logos, maps and the airport
-       database) is written to the device. One binary fits all supported
-       boards, the hardware is detected at boot.</p>
+       database) is written to the device. Pick the build matching your
+       board below, everything else is detected at boot.</p>
     <div class="btnrow">
       <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
       <span class="dim">16 MB boards: Waveshare 7 and most others</span>
@@ -53,6 +53,10 @@
     <div class="btnrow">
       <esp-web-install-button manifest="manifest-8mb.json"></esp-web-install-button>
       <span class="dim">8 MB boards: Waveshare 4.3 (module marked N8R8)</span>
+    </div>
+    <div class="btnrow">
+      <esp-web-install-button manifest="manifest-guition.json"></esp-web-install-button>
+      <span class="dim">Guition JC8048W550</span>
     </div>
     <p class="dim">Chrome or Edge on desktop required (Web Serial). Not sure which
        flash size you have? Check the marking on the metal module: N16R8 = 16 MB,
