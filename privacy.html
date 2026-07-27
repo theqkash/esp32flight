@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esp32flight - privacy policy</title>
+<style>
+body{background:#0c1510;color:#e7f2ea;font-family:system-ui,sans-serif;margin:0;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:48px 20px}
+h1{color:#5dd39e;font-size:30px}
+h2{color:#5dd39e;font-size:20px;margin-top:34px}
+p,li{color:#86a695}
+a{color:#5dd39e}
+.dim{font-size:14px;color:#6d8a7a}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Privacy policy</h1>
+<p class="dim">esp32flight (the device firmware and the Android application &bdquo;esp32flight&rdquo;,
+package <code>pl.theqkash.esp32flight</code>). Effective: 27 July 2026.</p>
+
+<h2>The short version</h2>
+<p>esp32flight collects no personal data, requires no account, contains no advertising and no
+analytics or tracking of any kind. There is no server of ours behind it - the app talks
+directly from your device to public data services.</p>
+
+<h2>What the app processes, and where</h2>
+<ul>
+  <li><b>Your location</b> is used only to know which part of the sky to show. You either type it in
+  yourself, or the app estimates a rough position from your IP address using the public ip-api.com
+  service. The location is stored only on your device and is never transmitted to the author. When
+  fetching nearby aircraft, the coordinates you chose are sent to the flight-data services below,
+  as this is technically necessary to answer the question &bdquo;what flies near me&rdquo;.</li>
+  <li><b>Settings</b> (radius, filters, themes, optional API keys you provide) are stored locally
+  on the device or in the app's private storage, nowhere else.</li>
+  <li><b>Observation history</b> (the list of aircraft the device has seen) is stored locally and
+  never leaves the device unless you export it yourself.</li>
+</ul>
+
+<h2>Third-party services</h2>
+<p>To do its job the app makes direct requests to: airplanes.live, adsb.lol, adsb.fi (aircraft
+positions), adsbdb.com, hexdb.io (routes and aircraft data), CARTO / OpenStreetMap (map tiles),
+RainViewer (precipitation), Open-Meteo (weather and geocoding), aviationweather.gov (METAR/TAF),
+planespotters.net (aircraft photos), wheretheiss.at (ISS position), SondeHub (radiosondes),
+ip-api.com (coarse IP geolocation), GitHub (airline logos, update check), and - only if you
+enable them with your own keys - FlightAware, aisstream.io and openAIP. Each of these
+services sees the standard technical data of any internet request (your IP address, the query)
+and handles it under its own privacy policy. The author receives none of it.</p>
+
+<h2>Permissions (Android)</h2>
+<p>The app requests only <code>INTERNET</code> and <code>ACCESS_NETWORK_STATE</code>. It does not
+access your device's GPS, contacts, storage, camera or anything else.</p>
+
+<h2>Children</h2>
+<p>The app is not directed at children and processes no personal data of any user.</p>
+
+<h2>Changes and contact</h2>
+<p>If this policy ever changes, the new version will appear at this address. Questions:
+<a href="https://github.com/theqkash/esp32flight/issues">github.com/theqkash/esp32flight/issues</a>.</p>
+</div>
+</body>
+</html>

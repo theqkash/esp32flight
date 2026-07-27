@@ -2,120 +2,238 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>esp32flight - web installer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esp32flight - a standalone desk flight radar</title>
+<meta name="description" content="A flight radar on a single ESP32 board with a touchscreen. No server, no subscriptions, no API keys. Flash it from your browser.">
+<meta property="og:title" content="esp32flight - your sky, on your desk">
+<meta property="og:description" content="A standalone desk flight radar on a $15-35 ESP32 board. Flash it from your browser.">
+<meta property="og:image" content="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 <style>
-  :root{
-    --bg:#0c1510; --panel:#15241b; --row:#1d3226; --row-sel:#2e6b45;
-    --accent:#5dd39e; --text:#e8f5ee; --dim:#7fa38f;
-  }
-  body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;margin:0;
-       display:flex;flex-direction:column;align-items:center;padding:40px 16px}
-  main{max-width:860px;width:100%}
-  h1{color:var(--accent);font-size:34px;margin:0;letter-spacing:.5px}
-  .tag{color:var(--dim);margin:6px 0 26px}
-  p,li{line-height:1.55;color:var(--text)}
-  .card{background:var(--panel);border:1px solid var(--row);border-radius:14px;padding:22px 26px;margin:18px 0}
-  .card h2{margin:0 0 10px;font-size:19px;color:var(--accent)}
-  esp-web-install-button{--esp-tools-button-color:var(--accent);--esp-tools-button-text-color:#06120b}
-  .btnrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px}
-  .dim{color:var(--dim);font-size:14px}
-  a{color:var(--accent)}
-  img.shot{width:100%;border-radius:12px;margin:8px 0;border:1px solid var(--row)}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:640px){.grid{grid-template-columns:1fr}}
-  code{background:var(--row);border-radius:6px;padding:2px 6px}
-  .boards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-  @media(max-width:640px){.boards{grid-template-columns:1fr}}
-  .board{background:var(--row);border-radius:10px;padding:12px 16px}
-  .board b{color:var(--text)}
-  .board span{display:block;color:var(--dim);font-size:13px;margin-top:3px}
-  .pill{display:inline-block;background:var(--row-sel);color:var(--text);border-radius:999px;
-        padding:2px 10px;font-size:12px;margin-left:8px;vertical-align:middle}
+:root{--bg:#0a120d;--bg2:#0c1510;--panel:#101d16;--card:#13221a;--border:#23402f;--accent:#5dd39e;--accent2:#9be8ff;--text:#eef7f1;--dim:#8fae9d;--help:#6d8a7a}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+h1,h2,h3,.wordmark{font-family:"Space Grotesk",Inter,sans-serif}
+.wrap{max-width:1140px;margin:0 auto;padding:0 22px}
+a{color:var(--accent)}
+
+nav{position:sticky;top:0;z-index:50;background:rgba(10,18,13,.82);backdrop-filter:blur(12px);border-bottom:1px solid rgba(35,64,47,.6)}
+nav .wrap{display:flex;align-items:center;gap:26px;height:60px}
+.wordmark{font-weight:700;font-size:19px;color:var(--text);text-decoration:none;letter-spacing:.3px}
+.wordmark .mark{display:inline-block;transform:rotate(-45deg);color:var(--accent);margin-right:6px}
+nav .links{margin-left:auto;display:flex;gap:22px;align-items:center}
+nav .links a{color:var(--dim);text-decoration:none;font-size:14.5px;font-weight:500}
+nav .links a:hover{color:var(--text)}
+nav .gh{background:var(--accent);color:#06130c!important;border-radius:10px;padding:7px 15px;font-weight:600}
+@media(max-width:720px){nav .links a:not(.gh){display:none}}
+
+.hero{position:relative;padding:84px 0 70px}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+@media(max-width:900px){.hero .wrap{grid-template-columns:1fr}}
+.hero h1{font-size:clamp(34px,5vw,54px);line-height:1.12;font-weight:700}
+.hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{color:var(--dim);font-size:18.5px;margin-top:18px;max-width:560px}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.chip{border:1px solid var(--border);border-radius:999px;padding:5px 14px;font-size:13px;color:var(--dim);background:rgba(19,34,26,.5)}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+.btn{background:var(--accent);color:#06130c;border:0;border-radius:12px;padding:13px 24px;font-weight:600;font-size:15.5px;text-decoration:none;display:inline-block;cursor:pointer;transition:transform .15s,filter .15s}
+.btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.glow{position:absolute;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(93,211,158,.14),transparent 65%);top:-140px;right:-160px;pointer-events:none}
+
+.device{position:relative;border-radius:22px;padding:14px;background:linear-gradient(160deg,#1a2b21,#0d1712);border:1px solid #2a4936;box-shadow:0 30px 70px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)}
+.device img{width:100%;display:block;border-radius:10px}
+.device::after{content:"";position:absolute;right:26px;top:5px;width:44px;height:4px;border-radius:2px;background:#223b2c}
+.stack{position:relative;padding:34px 0 0 0}
+.stack .tablet{position:absolute;top:-6px;right:-14px;width:74%;transform:rotate(3.5deg);z-index:1;border-radius:26px;padding:16px 16px 16px 26px;opacity:.95}
+.stack .tablet::before{content:"";position:absolute;left:9px;top:50%;width:7px;height:7px;border-radius:50%;background:#2e6b45;transform:translateY(-50%)}
+.stack .tablet::after{display:none}
+.stack .main{position:relative;z-index:2;width:88%;margin-top:52px}
+.stack .cap{position:relative;z-index:2;margin-top:16px;font-size:13.5px;color:var(--help);text-align:center}
+.hero .stack .main{animation:float 7s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(.4deg)}50%{transform:translateY(-10px) rotate(-.4deg)}}
+@media(prefers-reduced-motion:reduce){.hero .device{animation:none}}
+
+.strip{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2)}
+.strip .wrap{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:20px 22px}
+.stat{text-align:center;flex:1;min-width:130px}
+.stat b{display:block;font-family:"Space Grotesk";font-size:24px;color:var(--accent)}
+.stat span{font-size:13px;color:var(--help)}
+
+section{padding:72px 0 6px}
+h2{font-size:31px;font-weight:700;margin-bottom:8px}
+.lede{color:var(--dim);max-width:640px;margin-bottom:30px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;transition:transform .18s,border-color .18s}
+.card:hover{transform:translateY(-3px);border-color:#35604a}
+.card b{display:block;font-size:16.5px;margin-bottom:7px}
+.card p{font-size:14.5px;color:var(--dim)}
+.card .ic{font-size:22px;color:var(--accent);display:block;margin-bottom:10px}
+
+.gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.gal figure{margin:0}
+.gal .device{padding:10px;border-radius:16px}
+.gal .device::after{display:none}
+.gal figcaption{padding:12px 6px 0;font-size:13.5px;color:var(--dim)}
+
+table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+th{color:var(--help);text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:12px 14px;border-bottom:1px solid rgba(35,64,47,.4);color:var(--dim)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--text);font-weight:500}
+.note{color:var(--help);font-size:14px;margin-top:12px}
+
+.flash{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:30px;margin-top:6px}
+.btnrow{display:flex;align-items:center;gap:16px;margin:16px 0;flex-wrap:wrap}
+esp-web-install-button{--esp-tools-button-color:var(--accent);--esp-tools-button-text-color:#06120b}
+.dim{color:var(--help);font-size:14px}
+code{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:13px;color:#cfe4d6}
+
+footer{margin-top:80px;border-top:1px solid var(--border);background:var(--bg2)}
+footer .wrap{padding:34px 22px;display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;color:var(--help);font-size:14px}
+footer a{color:var(--dim);text-decoration:none;margin-right:16px}
+footer a:hover{color:var(--accent)}
 </style>
 </head>
 <body>
-<main>
-  <h1>esp32flight</h1>
-  <div class="tag">Standalone desk flight radar. No server, no subscriptions, no API keys.</div>
 
-  <div class="card">
-    <h2>Install from your browser <span class="pill">v0.3.2</span></h2>
-    <p>Connect the board over USB, click Install and pick the serial port.
-       The full firmware (16 MB including airline logos, maps and the airport
-       database) is written to the device. Pick the build matching your
-       board below, everything else is detected at boot.</p>
+<nav><div class="wrap">
+  <a class="wordmark" href="#"><span class="mark">&#9992;</span>esp32flight</a>
+  <div class="links">
+    <a href="#features">Features</a>
+    <a href="#screens">Screens</a>
+    <a href="#hardware">Hardware</a>
+    <a href="#install">Install</a>
+    <a class="gh" href="https://github.com/theqkash/esp32flight">GitHub</a>
+  </div>
+</div></nav>
+
+<div class="hero">
+  <div class="glow"></div>
+  <div class="wrap">
+    <div>
+      <h1>Your sky,<br><em>on your desk.</em></h1>
+      <p class="sub">A standalone flight radar on a single ESP32 board with a touchscreen.
+      Every aircraft around you with routes, airline logos, photos and flyover alerts -
+      plus rain, airspace, ships and the ISS if you want them.</p>
+      <div class="chips">
+        <span class="chip">no server</span><span class="chip">no subscriptions</span>
+        <span class="chip">no accounts</span><span class="chip">open source, MIT</span>
+      </div>
+      <div class="cta">
+        <a class="btn" href="#install">Flash from your browser</a>
+        <a class="btn ghost" href="https://github.com/theqkash/esp32flight/releases/latest">Android APK</a>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="device tablet"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/stats.png" alt="esp32flight on an Android tablet"></div>
+      <div class="device main"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail.png" alt="esp32flight on the ESP32 board"></div>
+      <div class="cap">One core, two homes: a $15&ndash;35 ESP32 board or any Android tablet since 5.0.</div>
+    </div>
+  </div>
+</div>
+
+<div class="strip"><div class="wrap">
+  <div class="stat"><b>8 s</b><span>data refresh</span></div>
+  <div class="stat"><b>$15&ndash;35</b><span>one board, no extras</span></div>
+  <div class="stat"><b>3 + &#128241;</b><span>boards + Android build</span></div>
+  <div class="stat"><b>0</b><span>required accounts or API keys</span></div>
+  <div class="stat"><b>MIT</b><span>license</span></div>
+</div></div>
+
+<section id="features"><div class="wrap">
+  <h2>Everything a window seat wishes it knew</h2>
+  <p class="lede">Point it at your Wi-Fi and it starts talking directly to open, free data networks.
+  Your location and history never leave the device.</p>
+  <div class="cards">
+    <div class="card"><span class="ic">&#9992;</span><b>Live radar of your sky</b><p>Aircraft within 2&ndash;460 km from community ADS-B networks or your own dump1090 antenna. List, detail card, zoomable real-map radar, session stats and a phosphor retro CRT view.</p></div>
+    <div class="card"><span class="ic">&#128506;</span><b>Who, where, whither</b><p>Airline with logo, route with cities and flags, progress bar, photo of the exact airframe, ETA in the destination's local time and a spotter line telling you where to look.</p></div>
+    <div class="card"><span class="ic">&#127754;</span><b>More than planes</b><p>Optional layers, each one switch: rain radar, airspace zones, weather balloons, harbour ships with destinations, and the ISS when it crosses your sky.</p></div>
+    <div class="card"><span class="ic">&#128276;</span><b>Alerts that find you</b><p>Emergency squawks, watchlist hits and &bdquo;passes over you in ~3 min&rdquo; pushed to your phone via ntfy.sh; webhooks for Node-RED and n8n; Home Assistant sensors over MQTT.</p></div>
+    <div class="card"><span class="ic">&#128421;</span><b>A real web panel</b><p>Every setting in the browser, a live map, spotting history, Prometheus metrics and a documented JSON API with a full data-model reference.</p></div>
+    <div class="card"><span class="ic">&#128295;</span><b>Honest engineering</b><p>Hackable C on ESP-IDF with an Android build of the same core for retired tablets. Aviation or metric units, English and Polish, 7 themes, OTA updates.</p></div>
+  </div>
+</div></section>
+
+<section id="screens"><div class="wrap">
+  <h2>Screens</h2>
+  <p class="lede">Straight off the device - 800&times;480 pixels of your local airspace.</p>
+  <div class="gal">
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/radar.png" alt="radar with airspace zones" loading="lazy"></div><figcaption>Radar on a real map: airspace zones, tappable planes, zoom, ship clusters</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/retro.png" alt="retro radar" loading="lazy"></div><figcaption>Retro CRT radar - the rain layer becomes the weather echo</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/stats.png" alt="session statistics" loading="lazy"></div><figcaption>Session stats: records, hourly chart, top airlines, METAR</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/ambient-mode.png" alt="ambient screensaver" loading="lazy"></div><figcaption>Ambient screensaver with live rain over your observation circle</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/route-map.png" alt="route map" loading="lazy"></div><figcaption>Full-screen route map with the great-circle track</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/photo.png" alt="aircraft photo" loading="lazy"></div><figcaption>The exact airframe, courtesy of planespotters.net</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail-forest.png" alt="forest theme" loading="lazy"></div><figcaption>Seven themes; this one is Forest</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/web-panel.png" alt="web panel" loading="lazy"></div><figcaption>The web panel: live map, history, every setting</figcaption></figure>
+  </div>
+</div></section>
+
+<section id="hardware"><div class="wrap">
+  <h2>Hardware</h2>
+  <p class="lede">One board, a USB-C cable and Wi-Fi. No soldering, no extra parts, nothing to assemble.</p>
+  <table>
+    <tr><th>Board</th><th>Screen</th><th>Price</th><th>Build</th></tr>
+    <tr><td>Waveshare ESP32-S3 Touch LCD 7</td><td>7&Prime; 800&times;480</td><td>about $35</td><td>standard (16 MB)</td></tr>
+    <tr><td>Waveshare ESP32-S3 Touch LCD 4.3 / 4.3B / 5</td><td>4.3&ndash;5&Prime; 800&times;480</td><td>about $20</td><td>16 MB, or 8 MB for N8R8 units</td></tr>
+    <tr><td>Guition JC8048W550</td><td>5&Prime; 800&times;480</td><td>about $15</td><td>dedicated build</td></tr>
+  </table>
+  <p class="note">Not sure about your flash size? Check the metal module: N16R8 = 16 MB, N8R8 = 8 MB.
+  An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.
+  An M5Stack Tab5 port is <a href="https://github.com/theqkash/esp32flight/issues/1">waiting for testers</a>.</p>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2>Install in two minutes</h2>
+  <p class="lede">Connect the board over USB, click Install, pick the serial port. Everything -
+  firmware, airline logos, maps, airport database - is written in one go. Chrome or Edge on desktop
+  required (Web Serial).</p>
+  <div class="flash">
     <div class="btnrow">
       <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
       <span class="dim">16 MB boards: Waveshare 7 and most others</span>
     </div>
     <div class="btnrow">
       <esp-web-install-button manifest="manifest-8mb.json"></esp-web-install-button>
-      <span class="dim">8 MB boards: Waveshare 4.3 (module marked N8R8)</span>
+      <span class="dim">8 MB boards: Waveshare 4.3 with the N8R8 module</span>
     </div>
     <div class="btnrow">
       <esp-web-install-button manifest="manifest-guition.json"></esp-web-install-button>
       <span class="dim">Guition JC8048W550</span>
     </div>
-    <p class="dim">Chrome or Edge on desktop required (Web Serial). Not sure which
-       flash size you have? Check the marking on the metal module: N16R8 = 16 MB,
-       N8R8 = 8 MB. The 8 MB build bundles the most common airline logos and
-       fetches the rest on demand.</p>
-    <p class="dim">If no port shows up on Windows, install the
-       <a href="https://www.wch-ic.com/downloads/CH343SER_ZIP.html">WCH CH343 driver</a>
-       (Waveshare) or the CH340 driver (Guition) and try again.
-       Flashing takes a few minutes.</p>
+    <p class="dim" style="margin-top:14px">Android instead? Grab <code>esp32flight-v0.4.0.apk</code> from the
+    <a href="https://github.com/theqkash/esp32flight/releases/latest">latest release</a>. After the first
+    flash, updates go over the air from the device's web panel.</p>
   </div>
+</div></section>
 
-  <div class="card">
-    <h2>Supported hardware</h2>
-    <div class="boards">
-      <div class="board"><b>Waveshare ESP32-S3-Touch-LCD-7</b>
-        <span>7" 800x480, the original target</span></div>
-      <div class="board"><b>Waveshare ESP32-S3-Touch-LCD-4.3</b>
-        <span>4.3" sibling (also 4.3B and 5); N8R8 modules use the 8 MB build</span></div>
-      <div class="board"><b>Guition JC8048W550</b>
-        <span>5" 800x480 budget board, autodetected</span></div>
-      <div class="board"><b>Android 5.0+</b>
-        <span>the same radar as an app:
-        <a href="https://github.com/theqkash/esp32flight/releases/latest">download the APK</a></span></div>
-    </div>
+<section><div class="wrap">
+  <h2>Data it stands on</h2>
+  <p class="lede" style="max-width:none">Community ADS-B (airplanes.live, adsb.lol, adsb.fi) with routes cross-checked
+  against the aircraft's real position; maps by <a href="https://carto.com/basemaps">CARTO</a> &copy;
+  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; rain by
+  <a href="https://www.rainviewer.com">RainViewer</a>; weather by <a href="https://open-meteo.com">Open-Meteo</a>;
+  METAR/TAF from aviationweather.gov; photos by <a href="https://www.planespotters.net">planespotters.net</a>;
+  balloons by <a href="https://sondehub.org">SondeHub</a>; ISS by <a href="https://wheretheiss.at">wheretheiss.at</a>;
+  ships by <a href="https://aisstream.io">aisstream.io</a> and airspace by
+  <a href="https://www.openaip.net">openAIP</a> (the last two with your own free keys). The full field-by-field
+  reference lives in <a href="https://github.com/theqkash/esp32flight/blob/main/docs/DATA-MODEL.md">DATA-MODEL.md</a>.</p>
+</div></section>
+
+<footer><div class="wrap">
+  <div>
+    <a href="https://github.com/theqkash/esp32flight">GitHub</a>
+    <a href="https://github.com/theqkash/esp32flight/releases">Releases</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="https://ko-fi.com/theqkash">Ko-fi</a>
   </div>
+  <div>MIT license &middot; built at a desk, for desks</div>
+</div></footer>
 
-  <div class="card">
-    <h2>What you get</h2>
-    <ul>
-      <li>Live aircraft within 1 to 250 nm, airline logos, types, class filter (airliners, military, helicopters...)</li>
-      <li>Routes with cities, flags and local airport times, ETA, photos of the actual aircraft</li>
-      <li>Route map, radar on a real map, session stats and a retro CRT radar view with a rotating sweep</li>
-      <li>Optional rain radar overlay (RainViewer) on all maps and as the retro scope's weather echo</li>
-      <li>Map or retro-radar screensaver, flyover alerts, push notifications, MQTT/Home Assistant</li>
-      <li>Web panel with live map, history and OTA updates at <code>http://esp32flight.local</code></li>
-    </ul>
-  </div>
-
-  <div class="grid">
-    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail-forest.png" alt="flight details">
-    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/retro.png" alt="retro radar with rain echo">
-    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/radar.png" alt="radar view">
-    <img class="shot" src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/ambient-mode.png" alt="screensaver with rain radar">
-  </div>
-
-  <div class="card">
-    <h2>First boot</h2>
-    <p>Tap the gear icon, scan and pick your 2.4 GHz Wi-Fi network, type the
-       password on the on-screen keyboard and save. The device locates itself,
-       fetches nearby flights and starts tracking. Later updates install over
-       the air from the web panel, the cable is only ever needed once.</p>
-  </div>
-
-  <p class="dim">
-    <a href="https://github.com/theqkash/esp32flight">Source on GitHub</a> &middot;
-    <a href="https://github.com/theqkash/esp32flight/releases">Releases</a> &middot;
-    <a href="https://ko-fi.com/theqkash">Support on Ko-fi</a> &middot;
-    MIT &copy; Łukasz Nowak
-  </p>
-</main>
 </body>
 </html>
