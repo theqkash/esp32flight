@@ -1,13 +1,13 @@
 {
   "name": "esp32flight (Guition)",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/esp32flight-v0.4.0-guition-full.bin",
+          "path": "firmware/esp32flight-v0.4.1-guition-full.bin",
           "offset": 0
         }
       ]
