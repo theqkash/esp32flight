@@ -183,10 +183,10 @@ footer a:hover{color:var(--accent)}
     <tr><td>Waveshare ESP32-S3 Touch LCD 7</td><td>7&Prime; 800&times;480</td><td>about $35</td><td>standard (16 MB)</td></tr>
     <tr><td>Waveshare ESP32-S3 Touch LCD 4.3 / 4.3B / 5</td><td>4.3&ndash;5&Prime; 800&times;480</td><td>about $20</td><td>16 MB, or 8 MB for N8R8 units</td></tr>
     <tr><td>Guition JC8048W550</td><td>5&Prime; 800&times;480</td><td>about $15</td><td>dedicated build</td></tr>
+    <tr><td>M5Stack Tab5</td><td>5&Prime; 1280&times;720</td><td>about $60</td><td>dedicated build (ESP32-P4)</td></tr>
   </table>
   <p class="note">Not sure about your flash size? Check the metal module: N16R8 = 16 MB, N8R8 = 8 MB.
-  An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.
-  An M5Stack Tab5 port is <a href="https://github.com/theqkash/esp32flight/issues/1">waiting for testers</a>.</p>
+  An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.</p>
 </div></section>
 
 <section id="install"><div class="wrap">
@@ -207,7 +207,11 @@ footer a:hover{color:var(--accent)}
       <esp-web-install-button manifest="manifest-guition.json"></esp-web-install-button>
       <span class="dim">Guition JC8048W550</span>
     </div>
-    <p class="dim" style="margin-top:14px">Android instead? Grab <code>esp32flight-v0.4.1.apk</code> from the
+    <div class="btnrow">
+      <esp-web-install-button manifest="manifest-tab5.json"></esp-web-install-button>
+      <span class="dim">M5Stack Tab5</span>
+    </div>
+    <p class="dim" style="margin-top:14px">Android instead? Grab <code>esp32flight-v0.4.2.apk</code> from the
     <a href="https://github.com/theqkash/esp32flight/releases/latest">latest release</a>. After the first
     flash, updates go over the air from the device's web panel.</p>
   </div>
