@@ -29,7 +29,10 @@ nav .links{margin-left:auto;display:flex;gap:22px;align-items:center}
 nav .links a{color:var(--dim);text-decoration:none;font-size:14.5px;font-weight:500}
 nav .links a:hover{color:var(--text)}
 nav .gh{background:var(--accent);color:#06130c!important;border-radius:10px;padding:7px 15px;font-weight:600}
-@media(max-width:720px){nav .links a:not(.gh){display:none}}
+nav .dc{background:#5865F2;color:#fff!important;border-radius:10px;padding:7px 15px;font-weight:600}
+.btn.discord{background:#5865F2;color:#fff;border:0}
+.btn.discord:hover{filter:brightness(1.1)}
+@media(max-width:720px){nav .links a:not(.gh):not(.dc){display:none}}
 
 .hero{position:relative;padding:84px 0 70px}
 .hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
@@ -108,6 +111,7 @@ footer a:hover{color:var(--accent)}
     <a href="#screens">Screens</a>
     <a href="#hardware">Hardware</a>
     <a href="#install">Install</a>
+    <a class="dc" href="https://discord.gg/CwH8XKRnpz">Discord</a>
     <a class="gh" href="https://github.com/theqkash/esp32flight">GitHub</a>
   </div>
 </div></nav>
@@ -127,6 +131,7 @@ footer a:hover{color:var(--accent)}
       <div class="cta">
         <a class="btn" href="#install">Flash from your browser</a>
         <a class="btn ghost" href="https://github.com/theqkash/esp32flight/releases/latest">Android APK</a>
+        <a class="btn discord" href="https://discord.gg/CwH8XKRnpz">Join the Discord</a>
       </div>
     </div>
     <div class="stack">
