@@ -1,14 +1,30 @@
 {
-  "name": "esp32flight (8 MB boards)",
-  "version": "0.4.2",
+  "name": "esp32flight",
+  "version": "0.4.3",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/esp32flight-v0.4.2-8mb-full.bin",
+          "path": "firmware/0.4.3/8mb/bootloader.bin",
           "offset": 0
+        },
+        {
+          "path": "firmware/0.4.3/8mb/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/0.4.3/8mb/ota_data_initial.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/0.4.3/8mb/esp32flight.bin",
+          "offset": 131072
+        },
+        {
+          "path": "firmware/0.4.3/8mb/assets.bin",
+          "offset": 4849664
         }
       ]
     }
