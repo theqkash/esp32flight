@@ -67,6 +67,27 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
+  <h2>Elecrow CrowPanel 5.0 bring-up</h2>
+  <p class="meta">2026-08-06 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash) only &middot; base: 0.4.3</p>
+  <p>First build for the CrowPanel 5.0: Guition-family wiring, 4 MB flash, so this class has
+  <b>no OTA</b> - updates always happen right here in the browser (settings survive) - and no
+  bundled airline logos: every logo is fetched on demand, so give it a network and a minute.
+  Untested on real hardware; you are the test.</p>
+
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-crowpanel50.json"></esp-web-install-button>
+    <span class="dim"><b>CrowPanel 5.0</b> (0.4.3-crowpanel) - first install: check <i>Erase device</i></span>
+  </div>
+
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the display come up at all, and is the image stable (no jitter, no shifted picture)?</li>
+    <li>Does touch work and track your finger correctly (not mirrored)?</li>
+    <li>Output of <code>esptool.py flash_id</code> and the revision marking on the PCB, if you can.</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>7B display jitter hunt</h2>
   <p class="meta">2026-08-05 &middot; board: Waveshare 7B (1024x600) only &middot; base: 0.4.3 + pending 0.4.4 changes</p>
   <p>Some 7B units show a jumping image that looks like the panel keeps re-fitting itself.
