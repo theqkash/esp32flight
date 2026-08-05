@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esp32flight - test builds</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+:root{--bg:#0a120d;--panel:#101d16;--card:#13221a;--border:#23402f;--accent:#5dd39e;--warn:#ffd166;--text:#eef7f1;--dim:#8fae9d;--help:#6d8a7a}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.6}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:0 22px}
+a{color:var(--accent)}
+nav{background:rgba(10,18,13,.9);border-bottom:1px solid rgba(35,64,47,.6)}
+nav .wrap{display:flex;align-items:center;gap:26px;height:60px}
+.wordmark{font-family:"Space Grotesk";font-weight:700;font-size:19px;color:var(--text);text-decoration:none}
+.wordmark .mark{display:inline-block;transform:rotate(-45deg);color:var(--accent);margin-right:6px}
+nav .links{margin-left:auto}
+nav .links a{color:var(--dim);text-decoration:none;font-size:14.5px;margin-left:18px}
+header{padding:44px 0 8px}
+h1{font-size:34px}
+.sub{color:var(--dim);margin-top:8px}
+.warnbox{border:1px solid var(--warn);background:rgba(255,209,102,.07);border-radius:14px;padding:16px 20px;margin:26px 0;font-size:14.5px}
+.warnbox b{color:var(--warn)}
+.campaign{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:26px 30px;margin:22px 0 34px}
+.campaign h2{font-size:22px;margin-bottom:4px}
+.meta{color:var(--help);font-size:13px;margin-bottom:14px}
+.campaign p{font-size:14.5px;color:var(--dim);margin:8px 0}
+.btnrow{display:flex;align-items:center;gap:16px;margin:16px 0;flex-wrap:wrap}
+esp-web-install-button{--esp-tools-button-color:var(--accent);--esp-tools-button-text-color:#06120b}
+.dim{color:var(--help);font-size:14px}
+code{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:13px;color:#cfe4d6}
+ul{padding-left:20px;font-size:14.5px;color:var(--dim)}
+footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:var(--help);font-size:14px}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="wordmark" href="index.html"><span class="mark">&#9992;</span>esp32flight</a>
+  <div class="links">
+    <a href="index.html">Stable releases</a>
+    <a href="https://discord.gg/CwH8XKRnpz">Discord</a>
+    <a href="https://github.com/theqkash/esp32flight">GitHub</a>
+  </div>
+</div></nav>
+
+<header class="wrap">
+  <h1>Test builds</h1>
+  <p class="sub">Experimental firmware for people helping to chase specific problems.
+  If nobody sent you here, you want the <a href="index.html">stable release</a> instead.</p>
+</header>
+
+<div class="wrap">
+
+<div class="warnbox">
+  <b>Read this first.</b> These builds exist to test one specific change and can be worse
+  than the release in every other way. Flashing keeps your Wi-Fi and settings
+  (leave <i>Erase device</i> unchecked). Going back is the same one click on the
+  <a href="index.html">stable page</a>. Please report results on
+  <a href="https://discord.gg/CwH8XKRnpz">Discord</a> - a build with no feedback helps nobody.
+</div>
+
+<div class="campaign">
+  <h2>7B display jitter hunt</h2>
+  <p class="meta">2026-08-05 &middot; board: Waveshare 7B (1024x600) only &middot; base: 0.4.3 + pending 0.4.4 changes</p>
+  <p>Some 7B units show a jumping image that looks like the panel keeps re-fitting itself.
+  Working theory: the display DMA runs out of memory bandwidth headroom on units with less
+  timing margin. Two builds, please test <b>A first</b>, and B only if A still jitters:</p>
+
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-7b-a.json"></esp-web-install-button>
+    <span class="dim"><b>Test A</b> (0.4.4t1) - clean vsync recovery, bigger DMA cushion, tidier internal RAM</span>
+  </div>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-7b-b.json"></esp-web-install-button>
+    <span class="dim"><b>Test B</b> (0.4.4t2) - everything from A plus pixel clock lowered 30.85 to 28 MHz</span>
+  </div>
+
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the jitter change on the map / rain overlay / screensaver vs. the plain list?</li>
+    <li>Does it get worse after 20-30 minutes of runtime (warm-up)?</li>
+    <li>Did you try a different USB cable and a 5V/2A+ power supply, and did that change anything?</li>
+    <li>Which build fixed it (A, B, neither), and your unit's purchase date if you know it.</li>
+  </ul>
+</div>
+
+<footer class="wrap">
+  esp32flight test builds &middot; <a href="index.html">stable releases</a> &middot;
+  <a href="https://github.com/theqkash/esp32flight/wiki">wiki</a>
+</footer>
+
+</div>
+</body>
+</html>
