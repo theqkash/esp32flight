@@ -7,23 +7,23 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/0.4.4/guition/bootloader.bin",
+          "path": "firmware/0.4.4/sunton43/bootloader.bin",
           "offset": 0
         },
         {
-          "path": "firmware/0.4.4/guition/partition-table.bin",
+          "path": "firmware/0.4.4/sunton43/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.4/guition/ota_data_initial.bin",
+          "path": "firmware/0.4.4/sunton43/ota_data_initial.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.4/guition/esp32flight.bin",
+          "path": "firmware/0.4.4/sunton43/esp32flight.bin",
           "offset": 131072
         },
         {
-          "path": "firmware/0.4.4/guition/assets.bin",
+          "path": "firmware/0.4.4/sunton43/assets.bin",
           "offset": 5373952
         }
       ]

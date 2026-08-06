@@ -68,7 +68,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 <div class="campaign">
   <h2>Elecrow CrowPanel 5.0 bring-up</h2>
-  <p class="meta">2026-08-06 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash) only &middot; base: 0.4.3</p>
+  <p class="meta">2026-08-06 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash) only &middot; base: 0.4.4</p>
   <p>First build for the CrowPanel 5.0: Guition-family wiring, 4 MB flash, so this class has
   <b>no OTA</b> - updates always happen right here in the browser (settings survive) - and no
   bundled airline logos: every logo is fetched on demand, so give it a network and a minute.
@@ -76,7 +76,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-crowpanel50.json"></esp-web-install-button>
-    <span class="dim"><b>CrowPanel 5.0</b> (0.4.3-crowpanel) - first install: check <i>Erase device</i></span>
+    <span class="dim"><b>CrowPanel 5.0</b> (0.4.4-crowpanel) - first install: check <i>Erase device</i></span>
   </div>
 
   <p>When reporting, include:</p>
@@ -89,14 +89,14 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 <div class="campaign">
   <h2>7B display jitter hunt</h2>
-  <p class="meta">2026-08-05 &middot; board: Waveshare 7B (1024x600) only &middot; base: 0.4.3 + pending 0.4.4 changes</p>
+  <p class="meta">2026-08-05 &middot; board: Waveshare 7B (1024x600) only &middot; base: 0.4.4 + pending 0.4.4 changes</p>
   <p>Some 7B units show a jumping image that looks like the panel keeps re-fitting itself.
   Working theory: the display DMA runs out of memory bandwidth headroom on units with less
   timing margin. Two builds, please test <b>A first</b>, and B only if A still jitters:</p>
 
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-7b-a.json"></esp-web-install-button>
-    <span class="dim"><b>Test A</b> (0.4.4t1) - clean vsync recovery, bigger DMA cushion, tidier internal RAM</span>
+    <span class="dim"><b>Test A</b> (0.4.4t1, rebased on the 0.4.4 release) - clean vsync recovery, bigger DMA cushion, tidier internal RAM</span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-7b-b.json"></esp-web-install-button>

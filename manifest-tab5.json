@@ -1,29 +1,29 @@
 {
   "name": "esp32flight",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-P4",
       "parts": [
         {
-          "path": "firmware/0.4.3/tab5/bootloader.bin",
+          "path": "firmware/0.4.4/tab5/bootloader.bin",
           "offset": 8192
         },
         {
-          "path": "firmware/0.4.3/tab5/partition-table.bin",
+          "path": "firmware/0.4.4/tab5/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.3/tab5/ota_data_initial.bin",
+          "path": "firmware/0.4.4/tab5/ota_data_initial.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.3/tab5/esp32flight.bin",
+          "path": "firmware/0.4.4/tab5/esp32flight.bin",
           "offset": 131072
         },
         {
-          "path": "firmware/0.4.3/tab5/assets.bin",
+          "path": "firmware/0.4.4/tab5/assets.bin",
           "offset": 5373952
         }
       ]

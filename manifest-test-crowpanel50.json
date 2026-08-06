@@ -1,6 +1,6 @@
 {
   "name": "esp32flight test",
-  "version": "0.4.3-crowpanel",
+  "version": "0.4.4-crowpanel",
   "new_install_prompt_erase": true,
   "builds": [
     {
