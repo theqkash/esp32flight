@@ -67,23 +67,33 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Elecrow CrowPanel 5.0 bring-up</h2>
+  <h2>Elecrow CrowPanel 5.0: display window hunt</h2>
   <p class="meta">2026-08-06 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash) only &middot; base: 0.4.4</p>
-  <p>First build for the CrowPanel 5.0: Guition-family wiring, 4 MB flash, so this class has
-  <b>no OTA</b> - updates always happen right here in the browser (settings survive) - and no
-  bundled airline logos: every logo is fetched on demand, so give it a network and a minute.
-  Untested on real hardware; you are the test.</p>
-
+  <p>First hardware report: the panel lives and touch works, but roughly the left 40% of the
+  image is blanked (a washed-out zone with a thin live strip at the very left edge). That points
+  at the panel's display-window timing or the pixel-clock edge. Three builds, each changing ONE
+  thing - please try them <b>in order</b> and send a photo of whichever looks different:</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-crowpanel50-c1.json"></esp-web-install-button>
+    <span class="dim"><b>Test C1</b> (0.4.4c1) - pixel clock lowered to 12 MHz</span>
+  </div>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-crowpanel50-c2.json"></esp-web-install-button>
+    <span class="dim"><b>Test C2</b> (0.4.4c2) - 12 MHz plus data sampled on the opposite clock edge</span>
+  </div>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-crowpanel50-c3.json"></esp-web-install-button>
+    <span class="dim"><b>Test C3</b> (0.4.4c3) - wide sync porches (classic 5&Prime; TFT window)</span>
+  </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-crowpanel50.json"></esp-web-install-button>
-    <span class="dim"><b>CrowPanel 5.0</b> (0.4.4-crowpanel) - first install: check <i>Erase device</i></span>
+    <span class="dim">baseline (0.4.4-crowpanel) - the build from the first report</span>
   </div>
-
   <p>When reporting, include:</p>
   <ul>
-    <li>Does the display come up at all, and is the image stable (no jitter, no shifted picture)?</li>
-    <li>Does touch work and track your finger correctly (not mirrored)?</li>
-    <li>Output of <code>esptool.py flash_id</code> and the revision marking on the PCB, if you can.</li>
+    <li>Does the dead zone move, shrink or disappear on each build? Photos beat words.</li>
+    <li>On the baseline: does the boundary between the dead zone and the content ever move, or is it rock solid?</li>
+    <li>The exact PCB revision marking if you can spot it (V1.x silk print on the back).</li>
   </ul>
 </div>
 
