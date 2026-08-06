@@ -7,7 +7,7 @@
 <meta name="description" content="A flight radar on a single ESP32 board with a touchscreen. No server, no subscriptions, no API keys. Flash it from your browser.">
 <meta property="og:title" content="esp32flight - your sky, on your desk">
 <meta property="og:description" content="A standalone desk flight radar on a $15-35 ESP32 board. Flash it from your browser.">
-<meta property="og:image" content="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail.png">
+<meta property="og:image" content="https://theqkash.github.io/esp32flight/img/route-map.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -61,6 +61,11 @@ nav .dc{background:#5865F2;color:#fff!important;border-radius:10px;padding:7px 1
 @keyframes float{0%,100%{transform:translateY(0) rotate(.4deg)}50%{transform:translateY(-10px) rotate(-.4deg)}}
 @media(prefers-reduced-motion:reduce){.hero .device{animation:none}}
 
+.relband{background:linear-gradient(90deg,rgba(93,211,158,.12),rgba(155,232,255,.07));border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.relband .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 22px;font-size:14.5px}
+.relband .tag{background:var(--accent);color:#06130c;font-weight:700;border-radius:999px;padding:3px 12px;font-size:12.5px;white-space:nowrap}
+.relband span{color:var(--dim)}
+.relband a{white-space:nowrap;font-weight:600}
 .strip{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2)}
 .strip .wrap{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:20px 22px}
 .stat{text-align:center;flex:1;min-width:130px}
@@ -111,6 +116,7 @@ footer a:hover{color:var(--accent)}
     <a href="#screens">Screens</a>
     <a href="#hardware">Hardware</a>
     <a href="#install">Install</a>
+    <a href="https://github.com/theqkash/esp32flight/wiki">Wiki</a>
     <a class="dc" href="https://discord.gg/CwH8XKRnpz">Discord</a>
     <a class="gh" href="https://github.com/theqkash/esp32flight">GitHub</a>
   </div>
@@ -123,7 +129,8 @@ footer a:hover{color:var(--accent)}
       <h1>Your sky,<br><em>on your desk.</em></h1>
       <p class="sub">A standalone flight radar on a single ESP32 board with a touchscreen.
       Every aircraft around you with routes, airline logos, photos and flyover alerts -
-      plus rain, airspace, ships and the ISS if you want them.</p>
+      plus rain, airspace, harbour ships and the ISS if you want them. After the first day
+      your local map even renders with no internet at all.</p>
       <div class="chips">
         <span class="chip">no server</span><span class="chip">no subscriptions</span>
         <span class="chip">no accounts</span><span class="chip">open source, MIT</span>
@@ -142,10 +149,18 @@ footer a:hover{color:var(--accent)}
   </div>
 </div>
 
+<div class="relband"><div class="wrap">
+  <span class="tag">NEW &middot; 0.4.4</span>
+  <span>The performance update: aircraft on screen in ~10 s from cold boot, maps cached on flash,
+  a smarter route brain and two community-contributed boards.</span>
+  <a href="https://github.com/theqkash/esp32flight/releases/tag/v0.4.4">Release notes &rarr;</a>
+</div></div>
+
 <div class="strip"><div class="wrap">
-  <div class="stat"><b>8 s</b><span>data refresh</span></div>
-  <div class="stat"><b>$15&ndash;35</b><span>one board, no extras</span></div>
-  <div class="stat"><b>3 + &#128241;</b><span>boards + Android build</span></div>
+  <div class="stat"><b>~10 s</b><span>cold boot to live traffic</span></div>
+  <div class="stat"><b>$15&ndash;60</b><span>one board, no extras</span></div>
+  <div class="stat"><b>6 + &#128241;</b><span>boards + Android build</span></div>
+  <div class="stat"><b>3</b><span>ADS-B networks, merged live</span></div>
   <div class="stat"><b>0</b><span>required accounts or API keys</span></div>
   <div class="stat"><b>MIT</b><span>license</span></div>
 </div></div>
@@ -155,28 +170,29 @@ footer a:hover{color:var(--accent)}
   <p class="lede">Point it at your Wi-Fi and it starts talking directly to open, free data networks.
   Your location and history never leave the device.</p>
   <div class="cards">
-    <div class="card"><span class="ic">&#9992;</span><b>Live radar of your sky</b><p>Aircraft within 2&ndash;460 km from community ADS-B networks or your own dump1090 antenna. List, detail card, zoomable real-map radar, session stats and a phosphor retro CRT view.</p></div>
-    <div class="card"><span class="ic">&#128506;</span><b>Who, where, whither</b><p>Airline with logo, route with cities and flags, progress bar, photo of the exact airframe, ETA in the destination's local time and a spotter line telling you where to look.</p></div>
+    <div class="card"><span class="ic">&#9992;</span><b>Live radar of your sky</b><p>Aircraft within 2&ndash;460 km, merged live from three community ADS-B networks (or your own dump1090 antenna). List, detail card, zoomable real-map radar, session stats and a phosphor retro CRT view.</p></div>
+    <div class="card"><span class="ic">&#128506;</span><b>Who, where, whither</b><p>Airline with logo, route with cities and flags, progress bar, photo of the exact airframe, ETA in the destination's local time and a spotter line telling you where to look. Routes are position-verified, cross-checked between databases and evicted the moment the flight contradicts them.</p></div>
     <div class="card"><span class="ic">&#127754;</span><b>More than planes</b><p>Optional layers, each one switch: rain radar, airspace zones, weather balloons, harbour ships with destinations, and the ISS when it crosses your sky.</p></div>
     <div class="card"><span class="ic">&#128276;</span><b>Alerts that find you</b><p>Emergency squawks, watchlist hits and &bdquo;passes over you in ~3 min&rdquo; pushed to your phone via ntfy.sh; webhooks for Node-RED and n8n; Home Assistant sensors over MQTT.</p></div>
     <div class="card"><span class="ic">&#128421;</span><b>A real web panel</b><p>Every setting in the browser, a live map, spotting history, Prometheus metrics and a documented JSON API with a full data-model reference.</p></div>
-    <div class="card"><span class="ic">&#128295;</span><b>Honest engineering</b><p>Hackable C on ESP-IDF with an Android build of the same core for retired tablets. Aviation or metric units, English and Polish, 7 themes, OTA updates.</p></div>
+    <div class="card"><span class="ic">&#128295;</span><b>Honest engineering</b><p>Hackable C on ESP-IDF with an Android build of the same core for retired tablets. Aviation or metric units, English and Polish, 7 themes, OTA updates with a wrong-board guard, offline map cache, and a <a href="https://github.com/theqkash/esp32flight/wiki">wiki that documents every switch</a>.</p></div>
   </div>
 </div></section>
 
 <section id="screens"><div class="wrap">
   <h2>Screens</h2>
-  <p class="lede">Straight off the device - 800&times;480 pixels of your local airspace.</p>
+  <p class="lede">Straight off the device - real captures, real traffic (the radar spent this week
+  visiting Frankfurt, Rotterdam and Taipei).</p>
   <div class="gal">
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/radar.png" alt="radar with airspace zones" loading="lazy"></div><figcaption>Radar on a real map: airspace zones, tappable planes, zoom, ship clusters</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/ships.png" alt="AIS ships with cluster badges" loading="lazy"></div><figcaption>The AIS layer: harbour ships, cluster badges, one list for sky and sea</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/retro.png" alt="retro radar" loading="lazy"></div><figcaption>Retro CRT radar - the rain layer becomes the weather echo</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/stats.png" alt="session statistics" loading="lazy"></div><figcaption>Session stats: records, hourly chart, top airlines, METAR</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/ambient-mode.png" alt="ambient screensaver" loading="lazy"></div><figcaption>Ambient screensaver with live rain over your observation circle</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/route-map.png" alt="route map" loading="lazy"></div><figcaption>Full-screen route map with the great-circle track</figcaption></figure>
+    <figure><div class="device"><img src="img/route-map.png" alt="route map Frankfurt to Hong Kong" loading="lazy"></div><figcaption>Half a globe on 800&times;480: Lufthansa to Hong Kong, live position, rain on the way</figcaption></figure>
+    <figure><div class="device"><img src="img/radar-view.png" alt="radar with ship clusters near Rotterdam" loading="lazy"></div><figcaption>Radar over Rotterdam: tappable planes, harbour ships collapsing into cluster badges</figcaption></figure>
+    <figure><div class="device"><img src="img/flight-card.png" alt="flight detail card" loading="lazy"></div><figcaption>The flight card: route, progress, spotter line and the stats that matter</figcaption></figure>
+    <figure><div class="device"><img src="img/ambient-map.png" alt="ambient screensaver" loading="lazy"></div><figcaption>Ambient screensaver: your observation circle, every aircraft, clock and weather</figcaption></figure>
+    <figure><div class="device"><img src="img/ambient-retro.png" alt="retro screensaver" loading="lazy"></div><figcaption>Or the retro CRT as a screensaver, sweeping all night</figcaption></figure>
+    <figure><div class="device"><img src="img/stats-view.png" alt="session statistics" loading="lazy"></div><figcaption>Session stats: records, hourly chart, top airlines, METAR raw or decoded</figcaption></figure>
+    <figure><div class="device"><img src="img/list-ships.png" alt="ship detail card" loading="lazy"></div><figcaption>Ships get full cards too: destination, speed, MMSI - one list for sky and sea</figcaption></figure>
     <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/photo.png" alt="aircraft photo" loading="lazy"></div><figcaption>The exact airframe, courtesy of planespotters.net</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/detail-forest.png" alt="forest theme" loading="lazy"></div><figcaption>Seven themes; this one is Forest</figcaption></figure>
-    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/web-panel.png" alt="web panel" loading="lazy"></div><figcaption>The web panel: live map, history, every setting</figcaption></figure>
+    <figure><div class="device"><img src="https://raw.githubusercontent.com/theqkash/esp32flight/main/docs/web-panel.png" alt="web panel" loading="lazy"></div><figcaption>The web panel: live map, history, backup and every setting</figcaption></figure>
   </div>
 </div></section>
 
@@ -184,14 +200,18 @@ footer a:hover{color:var(--accent)}
   <h2>Hardware</h2>
   <p class="lede">One board, a USB-C cable and Wi-Fi. No soldering, no extra parts, nothing to assemble.</p>
   <table>
-    <tr><th>Board</th><th>Screen</th><th>Price</th><th>Build</th></tr>
-    <tr><td>Waveshare ESP32-S3 Touch LCD 7</td><td>7&Prime; 800&times;480</td><td>about $35</td><td>standard (16 MB)</td></tr>
-    <tr><td>Waveshare ESP32-S3 Touch LCD 4.3 / 4.3B / 5</td><td>4.3&ndash;5&Prime; 800&times;480</td><td>about $20</td><td>16 MB, or 8 MB for N8R8 units</td></tr>
-    <tr><td>Guition JC8048W550</td><td>5&Prime; 800&times;480</td><td>about $15</td><td>dedicated build</td></tr>
-    <tr><td>M5Stack Tab5</td><td>5&Prime; 1280&times;720</td><td>about $60</td><td>dedicated build (ESP32-P4)</td></tr>
+    <tr><th>Board</th><th>Screen</th><th>Price</th><th>Notes</th></tr>
+    <tr><td>Waveshare ESP32-S3 Touch LCD 7</td><td>7&Prime; 800&times;480</td><td>about $35</td><td>the original target, best tested</td></tr>
+    <tr><td>Waveshare ESP32-S3 Touch LCD 4.3 / 4.3B / 5</td><td>4.3&ndash;5&Prime; 800&times;480</td><td>about $20</td><td>16 MB build, or 8 MB for N8R8 units</td></tr>
+    <tr><td>Waveshare ESP32-S3 Touch LCD 7B</td><td>7&Prime; 1024&times;600</td><td>about $40</td><td>sharpest panel, real brightness control</td></tr>
+    <tr><td>Guition JC8048W550</td><td>5&Prime; 800&times;480</td><td>about $15</td><td>the budget pick</td></tr>
+    <tr><td>Sunton ESP32-4827S043</td><td>4.3&Prime; 480&times;272</td><td>about $15</td><td>community-contributed; UI downscales cleanly</td></tr>
+    <tr><td>M5Stack Tab5</td><td>5&Prime; 1280&times;720</td><td>about $60</td><td>ESP32-P4, portable with a battery</td></tr>
   </table>
   <p class="note">Not sure about your flash size? Check the metal module: N16R8 = 16 MB, N8R8 = 8 MB.
-  An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.</p>
+  An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.
+  Two more boards (Sunton 4827S043R resistive, Elecrow CrowPanel 5.0) are cooking on the
+  <a href="beta.html">test builds page</a>.</p>
 </div></section>
 
 <section id="install"><div class="wrap">
@@ -233,6 +253,15 @@ footer a:hover{color:var(--accent)}
 </div></section>
 
 <section><div class="wrap">
+  <h2>Read the manual (there actually is one)</h2>
+  <div class="cards">
+    <div class="card"><span class="ic">&#128214;</span><b><a href="https://github.com/theqkash/esp32flight/wiki">The wiki</a></b><p>Every screen, every switch and every integration documented with real screenshots: getting started, boards, layers, updating, FAQ.</p></div>
+    <div class="card"><span class="ic">&#128268;</span><b><a href="https://github.com/theqkash/esp32flight/wiki/HTTP-API">HTTP API</a></b><p>Everything the panel shows is plain JSON on port 80: state, config, backup, Prometheus metrics, live screenshots. Curl examples included.</p></div>
+    <div class="card"><span class="ic">&#129514;</span><b><a href="beta.html">Test builds</a></b><p>Experimental firmware for people helping chase specific problems - flashed from the browser, settings survive, going back is one click.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
   <h2>Data it stands on</h2>
   <p class="lede" style="max-width:none">Community ADS-B (airplanes.live, adsb.lol, adsb.fi) with routes cross-checked
   against the aircraft's real position; maps by <a href="https://carto.com/basemaps">CARTO</a> &copy;
@@ -248,7 +277,9 @@ footer a:hover{color:var(--accent)}
 <footer><div class="wrap">
   <div>
     <a href="https://github.com/theqkash/esp32flight">GitHub</a>
+    <a href="https://github.com/theqkash/esp32flight/wiki">Wiki</a>
     <a href="https://github.com/theqkash/esp32flight/releases">Releases</a>
+    <a href="beta.html">Test builds</a>
     <a href="privacy.html">Privacy</a>
     <a href="https://ko-fi.com/theqkash">Ko-fi</a>
   </div>
