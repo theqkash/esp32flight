@@ -67,34 +67,17 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Elecrow CrowPanel 5.0: display window hunt</h2>
-  <p class="meta">2026-08-06 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash) only &middot; base: 0.4.4</p>
-  <p>First hardware report: the panel lives and touch works, but roughly the left 40% of the
-  image is blanked (a washed-out zone with a thin live strip at the very left edge). That points
-  at the panel's display-window timing or the pixel-clock edge. Three builds, each changing ONE
-  thing - please try them <b>in order</b> and send a photo of whichever looks different:</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpanel50-c1.json"></esp-web-install-button>
-    <span class="dim"><b>Test C1</b> (0.4.4c1) - pixel clock lowered to 12 MHz</span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpanel50-c2.json"></esp-web-install-button>
-    <span class="dim"><b>Test C2</b> (0.4.4c2) - 12 MHz plus data sampled on the opposite clock edge</span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpanel50-c3.json"></esp-web-install-button>
-    <span class="dim"><b>Test C3</b> (0.4.4c3) - wide sync porches (classic 5&Prime; TFT window)</span>
-  </div>
+  <h2>Elecrow CrowPanel 5.0: display window SOLVED</h2>
+  <p class="meta">resolved 2026-08-08 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash)</p>
+  <p>Hardware-confirmed by the first tester: the blanked left zone was the panel's display
+  window - the Guition-family porch timings this board inherited shifted it off-glass. The
+  classic wide 5&Prime; TFT window (Test C3) puts it where the panel expects it, and that fix
+  is now in the build below. Still experimental (4 MB class: updates via this flasher only,
+  no OTA, logos fetched on demand) - reports welcome before it graduates to the main page.</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-crowpanel50.json"></esp-web-install-button>
-    <span class="dim">baseline (0.4.4-crowpanel) - the build from the first report</span>
+    <span class="dim"><b>CrowPanel 5.0</b> (0.4.4-crowpanel, display-window fix included)</span>
   </div>
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Does the dead zone move, shrink or disappear on each build? Photos beat words.</li>
-    <li>On the baseline: does the boundary between the dead zone and the content ever move, or is it rock solid?</li>
-    <li>The exact PCB revision marking if you can spot it (V1.x silk print on the back).</li>
-  </ul>
 </div>
 
 <div class="campaign">
