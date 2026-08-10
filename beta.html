@@ -67,6 +67,25 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
+  <h2>Sunton 8048S070 / unbranded 7&Prime; Amazon clones: first build</h2>
+  <p class="meta">2026-08-08 &middot; board: Sunton ESP32-8048S070 and 7&Prime; 800x480 no-name clones (IoTeikXgo etc.) &middot; base: 0.4.4</p>
+  <p>These 7&Prime; boards look like the Guition's bigger sibling but are wired differently
+  (DE/VSYNC swapped, data bus reversed), which is why the existing builds show garbage on
+  them. This build carries their real pin map and panel timings from a working-device
+  database - untested on hardware, you are the test:</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-sunton70.json"></esp-web-install-button>
+    <span class="dim"><b>Sunton 8048S070 / 7&Prime; clones</b> (0.4.4-sunton70) - first install: check <i>Erase device</i></span>
+  </div>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the display come up, with correct colors (red is red, not blue)?</li>
+    <li>Does touch track your finger (not mirrored or offset)?</li>
+    <li>A photo of the PCB back (model silk print) so we know which clone this is.</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>Elecrow CrowPanel 5.0: display window SOLVED</h2>
   <p class="meta">resolved 2026-08-08 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash)</p>
   <p>Hardware-confirmed by the first tester: the blanked left zone was the panel's display
