@@ -98,28 +98,15 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>7B display jitter hunt</h2>
-  <p class="meta">2026-08-05 &middot; board: Waveshare 7B (1024x600) only &middot; base: 0.4.4 + pending 0.4.4 changes</p>
-  <p>Some 7B units show a jumping image that looks like the panel keeps re-fitting itself.
-  Working theory: the display DMA runs out of memory bandwidth headroom on units with less
-  timing margin. Two builds, please test <b>A first</b>, and B only if A still jitters:</p>
-
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7b-a.json"></esp-web-install-button>
-    <span class="dim"><b>Test A</b> (0.4.4t1, rebased on the 0.4.4 release) - clean vsync recovery, bigger DMA cushion, tidier internal RAM</span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7b-b.json"></esp-web-install-button>
-    <span class="dim"><b>Test B</b> (0.4.4t2) - everything from A plus pixel clock lowered 30.85 to 28 MHz</span>
-  </div>
-
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Does the jitter change on the map / rain overlay / screensaver vs. the plain list?</li>
-    <li>Does it get worse after 20-30 minutes of runtime (warm-up)?</li>
-    <li>Did you try a different USB cable and a 5V/2A+ power supply, and did that change anything?</li>
-    <li>Which build fixed it (A, B, neither), and your unit's purchase date if you know it.</li>
-  </ul>
+  <h2>7B display jitter: SOLVED</h2>
+  <p class="meta">resolved 2026-08-08 &middot; the fix ships in the updated 0.4.4-7b build on the <a href="index.html">main page</a></p>
+  <p>Root cause found on affected hardware: PSRAM memory bandwidth. The 1024x600 panel
+  streams ~62 MB/s from PSRAM continuously, and at the 80 MHz our build inherited from the
+  800x480 boards there was no headroom left for screen updates - units with less silicon
+  margin shook on any activity. Waveshare's own firmware runs PSRAM at 120 MHz; matching it
+  eliminated the shake outright. The same update also makes the map screensaver work on the
+  7B for the first time. Just reflash from the main page (settings survive) - the old A/B
+  test builds are retired.</p>
 </div>
 
 <footer class="wrap">
