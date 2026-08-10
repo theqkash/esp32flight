@@ -74,9 +74,16 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   them. This build carries their real pin map and panel timings from a working-device
   database - untested on hardware, you are the test:</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-sunton70.json"></esp-web-install-button>
-    <span class="dim"><b>Sunton 8048S070 / 7&Prime; clones</b> (0.4.4-sunton70) - first install: check <i>Erase device</i></span>
+    <esp-web-install-button manifest="manifest-test-sunton70-4mb.json"></esp-web-install-button>
+    <span class="dim"><b>4 MB module (N4R8)</b> (0.4.4-sunton70-4mb) - most Amazon clones; first install: check <i>Erase device</i></span>
   </div>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-sunton70.json"></esp-web-install-button>
+    <span class="dim"><b>16 MB module (N16R8)</b> (0.4.4-sunton70) - genuine Sunton units</span>
+  </div>
+  <p class="dim">Not sure which you have? Check the metal module's print: N4R8 = 4 MB, N16R8 = 16 MB.
+  The 4 MB build has no OTA (update via this flasher, settings survive) and fetches airline
+  logos on demand instead of bundling them.</p>
   <p>When reporting, include:</p>
   <ul>
     <li>Does the display come up, with correct colors (red is red, not blue)?</li>

@@ -1,0 +1,28 @@
+{
+  "name": "esp32flight test",
+  "version": "0.4.4-sunton70-4mb",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "firmware/test/sunton70-4mb/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "firmware/test/sunton70-4mb/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/test/sunton70-4mb/esp32flight.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/test/sunton70-4mb/assets.bin",
+          "offset": 2424832
+        }
+      ]
+    }
+  ]
+}
