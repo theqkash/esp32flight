@@ -67,28 +67,26 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Sunton 8048S070 / unbranded 7&Prime; Amazon clones: first build</h2>
-  <p class="meta">2026-08-08 &middot; board: Sunton ESP32-8048S070 and 7&Prime; 800x480 no-name clones (IoTeikXgo etc.) &middot; base: 0.4.4</p>
-  <p>These 7&Prime; boards look like the Guition's bigger sibling but are wired differently
-  (DE/VSYNC swapped, data bus reversed), which is why the existing builds show garbage on
-  them. This build carries their real pin map and panel timings from a working-device
-  database - untested on hardware, you are the test:</p>
+  <h2>7&Prime; Amazon HMI boards: they are CrowPanel 7.0 rebrands</h2>
+  <p class="meta">2026-08-11 &middot; board: Elecrow CrowPanel 7.0 (DIS08070H) and unbranded 7&Prime; rebrands (IoTeikXgo etc., EK9716BD3 driver, 4 MB flash) &middot; base: 0.4.4</p>
+  <p>Plot twist confirmed by the listing's own support links: the no-name 7&Prime; Amazon boards
+  are rebranded Elecrow CrowPanel 7.0 units - not Suntons. Their PCLK sits on GPIO0 (like the
+  CrowPanel 5.0 we already run) and the data bus differs from the Sunton 7&Prime; too. This build
+  carries Elecrow's official pin map and timings on the 4 MB class (updates via this flasher,
+  no OTA; airline logos load on demand):</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-sunton70-4mb.json"></esp-web-install-button>
-    <span class="dim"><b>4 MB module (N4R8)</b> (0.4.4-sunton70-4mb) - most Amazon clones; first install: check <i>Erase device</i></span>
+    <esp-web-install-button manifest="manifest-test-crowpanel70.json"></esp-web-install-button>
+    <span class="dim"><b>CrowPanel 7.0 / 7&Prime; Amazon rebrands, 4 MB</b> (0.4.4-crowpanel70) - first install: check <i>Erase device</i></span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-sunton70.json"></esp-web-install-button>
-    <span class="dim"><b>16 MB module (N16R8)</b> (0.4.4-sunton70) - genuine Sunton units</span>
+    <span class="dim"><b>Genuine Sunton 8048S070, 16 MB</b> (0.4.4-sunton70) - untested, testers welcome</span>
   </div>
-  <p class="dim">Not sure which you have? Check the metal module's print: N4R8 = 4 MB, N16R8 = 16 MB.
-  The 4 MB build has no OTA (update via this flasher, settings survive) and fetches airline
-  logos on demand instead of bundling them.</p>
   <p>When reporting, include:</p>
   <ul>
     <li>Does the display come up, with correct colors (red is red, not blue)?</li>
     <li>Does touch track your finger (not mirrored or offset)?</li>
-    <li>A photo of the PCB back (model silk print) so we know which clone this is.</li>
+    <li>A photo of the PCB back (model silk print), if you can.</li>
   </ul>
 </div>
 
