@@ -67,6 +67,27 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
+  <h2>BigTreeTech Panda Touch: the Bambu pendant becomes a flight radar</h2>
+  <p class="meta">2026-08-15 &middot; board: BTT Panda Touch (ESP32-S3 R8, 5&Prime; 800x480, GT911, battery) &middot; base: 0.4.4</p>
+  <p>BTT's Bambu-printer remote is a regular ESP32-S3 smart display underneath, and BTT
+  themselves publish the full pin map in their open <a href="https://github.com/bigtreetech/PandaTouch_IDF">PandaTouch_IDF SDK</a> -
+  this build uses their pins and timings verbatim (DE-only panel, reset on GPIO46, 23 MHz pclk).
+  Full 16 MB class: OTA updates and the complete airline logo set included. Heads-up: flashing
+  replaces the stock Bambu-remote firmware; a full-flash backup or BTT's published images bring
+  it back. Bonus of the built-in battery: the radar runs untethered for 20-30 minutes.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-pandatouch.json"></esp-web-install-button>
+    <span class="dim"><b>Panda Touch, 16 MB</b> (0.4.4-pandatouch) - first install: check <i>Erase device</i></span>
+  </div>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the display come up, with correct colors (red is red, not blue)?</li>
+    <li>Does touch track your finger (not mirrored or offset)?</li>
+    <li>Does the backlight dim correctly (night mode toggle in settings)?</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>7&Prime; Amazon HMI boards: they are CrowPanel 7.0 rebrands</h2>
   <p class="meta">2026-08-11 &middot; board: Elecrow CrowPanel 7.0 (DIS08070H) and unbranded 7&Prime; rebrands (IoTeikXgo etc., EK9716BD3 driver, 4 MB flash) &middot; base: 0.4.4</p>
   <p>Plot twist confirmed by the listing's own support links: the no-name 7&Prime; Amazon boards
