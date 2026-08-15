@@ -79,6 +79,9 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
     <esp-web-install-button manifest="manifest-test-pandatouch.json"></esp-web-install-button>
     <span class="dim"><b>Panda Touch, 16 MB</b> (0.4.4-pandatouch) - first install: check <i>Erase device</i></span>
   </div>
+  <p>Prefer the command line? Grab the <a href="firmware/test/pandatouch/esp32flight-0.4.4-pandatouch-full.bin">single merged image</a>
+  and flash it in one go: <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.4-pandatouch-full.bin</code>
+  (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code> restores the Bambu remote).</p>
   <p>When reporting, include:</p>
   <ul>
     <li>Does the display come up, with correct colors (red is red, not blue)?</li>
