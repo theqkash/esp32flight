@@ -76,9 +76,16 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   firmware does and picks the right path. ILI9881C and ST7123 are hardware-confirmed; <b>ST7121
   owners wanted</b> - yours is the untested one, the boot log will greet you with
   <i>board: M5Stack Tab5 (ST7121)</i>.</p>
+  <p><b>Strobe report (2026-08-17):</b> one tester sees the image come up for a fraction of a
+  second, blank, and repeat. To pin down whether that unit is a real ST7121 or an ST7123 the
+  probe misreads, there are now two builds - flash A first, and if it strobes, flash B:</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-tab5.json"></esp-web-install-button>
-    <span class="dim"><b>M5Stack Tab5, 16 MB</b> (0.4.4-tab5) - first install: check <i>Erase device</i></span>
+    <span class="dim"><b>Test A: auto-detect</b> (0.4.4-tab5) - first install: check <i>Erase device</i></span>
+  </div>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-tab5b.json"></esp-web-install-button>
+    <span class="dim"><b>Test B: ST7123 path forced</b> (0.4.4-tab5-b) - for 0x55 units that strobe on A</span>
   </div>
   <p>Command line instead? One-shot image:
   <a href="firmware/test/tab5/esp32flight-0.4.4-tab5-full.bin">esp32flight-0.4.4-tab5-full.bin</a> -
@@ -86,7 +93,9 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
-    <li>The <i>board:</i> line from the boot log (or just whether the display lights up with the radar).</li>
+    <li>Which build (A or B) shows a stable picture.</li>
+    <li>The <i>board:</i> and <i>sitronix touch fw version:</i> lines from the boot log, if you can
+    reach a serial console - they name your panel generation outright.</li>
     <li>Does touch track your finger?</li>
     <li>Which panel your unit has, if you know (purchase date helps map generations).</li>
   </ul>

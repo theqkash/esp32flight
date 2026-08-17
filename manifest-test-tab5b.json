@@ -1,0 +1,32 @@
+{
+  "name": "esp32flight test",
+  "version": "0.4.4-tab5-b",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-P4",
+      "parts": [
+        {
+          "path": "firmware/test/tab5-b/bootloader.bin",
+          "offset": 8192
+        },
+        {
+          "path": "firmware/test/tab5-b/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/test/tab5-b/ota_data_initial.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/test/tab5-b/esp32flight.bin",
+          "offset": 131072
+        },
+        {
+          "path": "firmware/test/tab5-b/assets.bin",
+          "offset": 5373952
+        }
+      ]
+    }
+  ]
+}
