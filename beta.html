@@ -67,6 +67,32 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
+  <h2>M5Stack Tab5: now covering all three panel generations</h2>
+  <p class="meta">2026-08-17 &middot; board: M5Stack Tab5 (ESP32-P4, 5&Prime; 1280x720 MIPI-DSI) &middot; base: 0.4.4</p>
+  <p>The Tab5 shipped with three different display generations: ILI9881C + GT911 (early units),
+  ST7123 and - as it turns out - ST7121. The last two answer at the same I2C address and only a
+  touch-firmware version register tells them apart; the ST7121 also wants its own vsync timings
+  and a completely different init sequence. This build probes the panel at boot the way M5's own
+  firmware does and picks the right path. ILI9881C and ST7123 are hardware-confirmed; <b>ST7121
+  owners wanted</b> - yours is the untested one, the boot log will greet you with
+  <i>board: M5Stack Tab5 (ST7121)</i>.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-tab5.json"></esp-web-install-button>
+    <span class="dim"><b>M5Stack Tab5, 16 MB</b> (0.4.4-tab5) - first install: check <i>Erase device</i></span>
+  </div>
+  <p>Command line instead? One-shot image:
+  <a href="firmware/test/tab5/esp32flight-0.4.4-tab5-full.bin">esp32flight-0.4.4-tab5-full.bin</a> -
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.4-tab5-full.bin</code>
+  (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>The <i>board:</i> line from the boot log (or just whether the display lights up with the radar).</li>
+    <li>Does touch track your finger?</li>
+    <li>Which panel your unit has, if you know (purchase date helps map generations).</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>BigTreeTech Panda Touch: the Bambu pendant becomes a flight radar</h2>
   <p class="meta">2026-08-15 &middot; board: BTT Panda Touch (ESP32-S3 R8, 5&Prime; 800x480, GT911, battery) &middot; base: 0.4.4</p>
   <p>BTT's Bambu-printer remote is a regular ESP32-S3 smart display underneath, and BTT
