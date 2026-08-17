@@ -76,9 +76,10 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   firmware does and picks the right path. ILI9881C and ST7123 are hardware-confirmed; <b>ST7121
   owners wanted</b> - yours is the untested one, the boot log will greet you with
   <i>board: M5Stack Tab5 (ST7121)</i>.</p>
-  <p><b>Strobe report (2026-08-17):</b> one tester sees the image come up for a fraction of a
-  second, blank, and repeat. To pin down whether that unit is a real ST7121 or an ST7123 the
-  probe misreads, there are now two builds - flash A first, and if it strobes, flash B:</p>
+  <p><b>Strobe report, round 2 (2026-08-17):</b> the A/B result (A strobing, B black) confirmed
+  a genuine ST7121 panel. Test A has been rebuilt around the vendored ST7121 reference driver
+  from M5's own firmware - byte-for-byte their init path this time, not our re-creation of it.
+  Flash the updated A; B stays up only as the comparison point:</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-tab5.json"></esp-web-install-button>
     <span class="dim"><b>Test A: auto-detect</b> (0.4.4-tab5) - first install: check <i>Erase device</i></span>
