@@ -67,8 +67,8 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>M5Stack Tab5: now covering all three panel generations</h2>
-  <p class="meta">2026-08-17 &middot; board: M5Stack Tab5 (ESP32-P4, 5&Prime; 1280x720 MIPI-DSI) &middot; base: 0.4.4</p>
+  <h2>M5Stack Tab5: all three panel generations SOLVED</h2>
+  <p class="meta">resolved 2026-08-17 &middot; board: M5Stack Tab5 (ESP32-P4, 5&Prime; 1280x720 MIPI-DSI) &middot; base: 0.4.4</p>
   <p>The Tab5 shipped with three different display generations: ILI9881C + GT911 (early units),
   ST7123 and - as it turns out - ST7121. The last two answer at the same I2C address and only a
   touch-firmware version register tells them apart; the ST7121 also wants its own vsync timings
@@ -76,10 +76,11 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   firmware does and picks the right path. ILI9881C and ST7123 are hardware-confirmed; <b>ST7121
   owners wanted</b> - yours is the untested one, the boot log will greet you with
   <i>board: M5Stack Tab5 (ST7121)</i>.</p>
-  <p><b>Strobe report, round 2 (2026-08-17):</b> the A/B result (A strobing, B black) confirmed
-  a genuine ST7121 panel. Test A has been rebuilt around the vendored ST7121 reference driver
-  from M5's own firmware - byte-for-byte their init path this time, not our re-creation of it.
-  Flash the updated A; B stays up only as the comparison point:</p>
+  <p><b>Hardware-confirmed on all three generations.</b> The strobing ST7121 report went through
+  a textbook A/B/C: A (our re-created init table) strobed, B (forced ST7123 path) stayed black -
+  proving a genuine ST7121 - and Test C, carrying M5's own ST7121 driver verbatim, runs stable.
+  Lesson for the changelog: the vendor driver's per-command settle delays are load-bearing.
+  Test C below is the build to use on any Tab5; it auto-detects ILI9881C, ST7123 and ST7121:</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-tab5c.json"></esp-web-install-button>
     <span class="dim"><b>Test C: ST7121 reference driver</b> (0.4.4-tab5-c) - fresh files, no cache risk; the flasher dialog must say <i>0.4.4-tab5-c</i></span>
