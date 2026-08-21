@@ -1,0 +1,32 @@
+{
+  "name": "esp32flight",
+  "version": "0.4.5",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "firmware/0.4.5/7c/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "firmware/0.4.5/7c/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/0.4.5/7c/ota_data_initial.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/0.4.5/7c/esp32flight.bin",
+          "offset": 131072
+        },
+        {
+          "path": "firmware/0.4.5/7c/assets.bin",
+          "offset": 5373952
+        }
+      ]
+    }
+  ]
+}

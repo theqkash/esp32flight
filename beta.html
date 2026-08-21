@@ -67,14 +67,15 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Waveshare 7C BOX: the boxed radar candidate</h2>
-  <p class="meta">2026-08-21 &middot; board: Waveshare ESP32-S3-Touch-LCD-7C(-BOX) (7&Prime; 800x480, GT911, battery, ES8389 audio) &middot; base: 0.4.5</p>
+  <h2>Waveshare 7C BOX: SOLVED, first-flash clean</h2>
+  <p class="meta">resolved 2026-08-21 &middot; board: Waveshare ESP32-S3-Touch-LCD-7C(-BOX) (7&Prime; 800x480, GT911, battery, ES8389 audio) &middot; base: 0.4.5</p>
   <p>The boxed 7C is the classic Waveshare 7 panel family wearing an enclosure: two data lines
   (G5/G6) moved to GPIO 9/8, the I2C bus moved to 47/48, and the IO helper at 0x24 speaks the
   CH32V003 register protocol we already drive on the 7B (TP_RST + real backlight PWM). Pins
   and timings verbatim from Waveshare's own 7C repo, cross-checked against the BOX wiki. The
   32 MB flash runs our standard 16 MB layout for now; the codec, mic and battery gauge are not
-  used by the radar yet.</p>
+  used by the radar yet. <b>Tester-confirmed working on first flash</b> - the board is now on
+  the <a href="index.html">main flasher page</a>.</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-7c.json"></esp-web-install-button>
     <span class="dim"><b>Waveshare 7C / 7C BOX, 16 MB layout</b> (0.4.5-7c) - first install: check <i>Erase device</i></span>
@@ -128,18 +129,19 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>BigTreeTech Panda Touch: the Bambu pendant becomes a flight radar</h2>
-  <p class="meta">2026-08-15 &middot; board: BTT Panda Touch (ESP32-S3 R8, 5&Prime; 800x480, GT911, battery) &middot; base: 0.4.4</p>
+  <h2>BigTreeTech Panda Touch: SOLVED, shake cured at 120 MHz</h2>
+  <p class="meta">resolved 2026-08-21 &middot; board: BTT Panda Touch (ESP32-S3 R8, 5&Prime; 800x480, GT911, battery) &middot; base: 0.4.4</p>
   <p>BTT's Bambu-printer remote is a regular ESP32-S3 smart display underneath, and BTT
   themselves publish the full pin map in their open <a href="https://github.com/bigtreetech/PandaTouch_IDF">PandaTouch_IDF SDK</a> -
   this build uses their pins and timings verbatim (DE-only panel, reset on GPIO46, 23 MHz pclk).
   Full 16 MB class: OTA updates and the complete airline logo set included. Heads-up: flashing
   replaces the stock Bambu-remote firmware; a full-flash backup or BTT's published images bring
   it back. Bonus of the built-in battery: the radar runs untethered for 20-30 minutes.</p>
-  <p><b>First tester report (2026-08-21): it works, but the image shakes.</b> Same failure mode
-  the Waveshare 7B taught us, and BTT's own SDK confirms the cure: their firmware runs PSRAM
-  and flash at 120 MHz, our first build ran 80. Test B below carries the 120 MHz clocks
-  (rebased on 0.4.5, so it also brings the aircraft-photo fix and everything else):</p>
+  <p><b>Confirmed working.</b> The first build shook (the Waveshare 7B failure mode: PSRAM at
+  80 MHz cannot feed a 23 MHz-pclk panel and the app at once); matching BTT's own SDK clocks -
+  PSRAM and flash at 120 MHz - cured it, tester-confirmed. The board is now on the
+  <a href="index.html">main flasher page</a>. Third board in a row proving the rule: RGB panels
+  above ~20 MHz pclk need 120 MHz memory clocks.</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-pandatouch-b.json"></esp-web-install-button>
     <span class="dim"><b>Test B: 120 MHz memory clocks</b> (0.4.5-pandatouch, dialog shows 0.4.5-pandatouch-b) - updating from the first build: leave <i>Erase device</i> unchecked, settings survive</span>
