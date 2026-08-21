@@ -91,26 +91,6 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Waveshare 7B: night mode could black the screen out for good</h2>
-  <p class="meta">2026-08-20 &middot; board: Waveshare ESP32-S3-Touch-LCD-7B (1024x600) &middot; base: 0.4.4</p>
-  <p>Owner report: the panel goes dark for the night and no touch ever wakes it, while the web
-  panel stays alive. Three stacked causes, all fixed in this build: the 7B's backlight-off path
-  was powering down the touch controller together with the backlight (so tap-to-wake never saw
-  the tap), the morning restore required the screensaver to still be up (a tap in the dark
-  closed it invisibly and the panel stayed black past sunrise), and there was no recovery hook
-  at all. Now: any tap relights the screen, sunrise restore is unconditional, and switching
-  night mode off in the web panel also wakes it.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7b-night.json"></esp-web-install-button>
-    <span class="dim"><b>Waveshare 7B, night-mode fix</b> (0.4.4-7b) - fresh files; verify by
-    letting it blank at night, then a single tap should bring it back</span>
-  </div>
-  <p>Browser download blocked (403 on a .bin usually means antivirus or a network filter)?
-  Use the <a href="firmware/test/7b-night/esp32flight-0.4.5-7b-night-full.bin">single merged image</a>:
-  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-7b-night-full.bin</code>.</p>
-</div>
-
-<div class="campaign">
   <h2>M5Stack Tab5: all three panel generations SOLVED</h2>
   <p class="meta">resolved 2026-08-17 &middot; board: M5Stack Tab5 (ESP32-P4, 5&Prime; 1280x720 MIPI-DSI) &middot; base: 0.4.4</p>
   <p>The Tab5 shipped with three different display generations: ILI9881C + GT911 (early units),
