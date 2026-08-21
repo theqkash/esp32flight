@@ -67,6 +67,30 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
+  <h2>Waveshare 7C BOX: the boxed radar candidate</h2>
+  <p class="meta">2026-08-21 &middot; board: Waveshare ESP32-S3-Touch-LCD-7C(-BOX) (7&Prime; 800x480, GT911, battery, ES8389 audio) &middot; base: 0.4.5</p>
+  <p>The boxed 7C is the classic Waveshare 7 panel family wearing an enclosure: two data lines
+  (G5/G6) moved to GPIO 9/8, the I2C bus moved to 47/48, and the IO helper at 0x24 speaks the
+  CH32V003 register protocol we already drive on the 7B (TP_RST + real backlight PWM). Pins
+  and timings verbatim from Waveshare's own 7C repo, cross-checked against the BOX wiki. The
+  32 MB flash runs our standard 16 MB layout for now; the codec, mic and battery gauge are not
+  used by the radar yet.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-7c.json"></esp-web-install-button>
+    <span class="dim"><b>Waveshare 7C / 7C BOX, 16 MB layout</b> (0.4.5-7c) - first install: check <i>Erase device</i></span>
+  </div>
+  <p>Command line? One-shot image:
+  <a href="firmware/test/7c/esp32flight-0.4.5-7c-full.bin">esp32flight-0.4.5-7c-full.bin</a> -
+  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-7c-full.bin</code>.</p>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the display come up with correct colors (green gradients are the tell here - the moved lines are green bits)?</li>
+    <li>Does touch track your finger?</li>
+    <li>Does the backlight dim (night mode toggle) and does tap-to-wake work?</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>Waveshare 7B: night mode could black the screen out for good</h2>
   <p class="meta">2026-08-20 &middot; board: Waveshare ESP32-S3-Touch-LCD-7B (1024x600) &middot; base: 0.4.4</p>
   <p>Owner report: the panel goes dark for the night and no touch ever wakes it, while the web
