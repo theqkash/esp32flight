@@ -66,94 +66,37 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <a href="https://discord.gg/CwH8XKRnpz">Discord</a> - a build with no feedback helps nobody.
 </div>
 
-<div class="campaign">
-  <h2>Waveshare 7C BOX: SOLVED, first-flash clean</h2>
-  <p class="meta">resolved 2026-08-21 &middot; board: Waveshare ESP32-S3-Touch-LCD-7C(-BOX) (7&Prime; 800x480, GT911, battery, ES8389 audio) &middot; base: 0.4.5</p>
-  <p>The boxed 7C is the classic Waveshare 7 panel family wearing an enclosure: two data lines
-  (G5/G6) moved to GPIO 9/8, the I2C bus moved to 47/48, and the IO helper at 0x24 speaks the
-  CH32V003 register protocol we already drive on the 7B (TP_RST + real backlight PWM). Pins
-  and timings verbatim from Waveshare's own 7C repo, cross-checked against the BOX wiki. The
-  32 MB flash runs our standard 16 MB layout for now; the codec, mic and battery gauge are not
-  used by the radar yet. <b>Tester-confirmed working on first flash</b> - the board is now on
-  the <a href="index.html">main flasher page</a>.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7c.json"></esp-web-install-button>
-    <span class="dim"><b>Waveshare 7C / 7C BOX, 16 MB layout</b> (0.4.5-7c) - first install: check <i>Erase device</i></span>
-  </div>
-  <p>Command line? One-shot image:
-  <a href="firmware/test/7c/esp32flight-0.4.5-7c-full.bin">esp32flight-0.4.5-7c-full.bin</a> -
-  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-7c-full.bin</code>.</p>
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Does the display come up with correct colors (green gradients are the tell here - the moved lines are green bits)?</li>
-    <li>Does touch track your finger?</li>
-    <li>Does the backlight dim (night mode toggle) and does tap-to-wake work?</li>
-  </ul>
-</div>
+
+
 
 <div class="campaign">
-  <h2>M5Stack Tab5: all three panel generations SOLVED</h2>
-  <p class="meta">resolved 2026-08-17 &middot; board: M5Stack Tab5 (ESP32-P4, 5&Prime; 1280x720 MIPI-DSI) &middot; base: 0.4.4</p>
-  <p>The Tab5 shipped with three different display generations: ILI9881C + GT911 (early units),
-  ST7123 and - as it turns out - ST7121. The last two answer at the same I2C address and only a
-  touch-firmware version register tells them apart; the ST7121 also wants its own vsync timings
-  and a completely different init sequence. This build probes the panel at boot the way M5's own
-  firmware does and picks the right path. ILI9881C and ST7123 are hardware-confirmed; <b>ST7121
-  owners wanted</b> - yours is the untested one, the boot log will greet you with
-  <i>board: M5Stack Tab5 (ST7121)</i>.</p>
-  <p><b>Hardware-confirmed on all three generations.</b> The strobing ST7121 report went through
-  a textbook A/B/C: A (our re-created init table) strobed, B (forced ST7123 path) stayed black -
-  proving a genuine ST7121 - and Test C, carrying M5's own ST7121 driver verbatim, runs stable.
-  Lesson for the changelog: the vendor driver's per-command settle delays are load-bearing.
-  Test C below is the build to use on any Tab5; it auto-detects ILI9881C, ST7123 and ST7121:</p>
+  <h2>Guition JC8012P4A1: the 10.1&Prime; ESP32-P4 board</h2>
+  <p class="meta">2026-08-27 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch, 32 MB PSRAM / 16 MB flash) &middot; base: 0.4.5</p>
+  <p>First build for the 10.1&Prime; Guition: MIPI-DSI panel driven the way ESPHome and the
+  espcontrol/BETTA projects drive it (their field-proven init tables and timings), Wi-Fi over
+  the C6 co-processor, and a touch driver written for the Silead GSL3680 (it needs a firmware
+  upload at every boot - that is normal, not a fault). <b>Two panel revisions exist and there is
+  no way to tell them apart at runtime</b>: look at the batch number on the rear-case sticker.
+  Batch <b>2627 or lower</b> is V1, <b>2628 or higher</b> is V2. The wrong one shows horizontal
+  lines or nothing.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-tab5c.json"></esp-web-install-button>
-    <span class="dim"><b>Test C: ST7121 reference driver</b> (0.4.4-tab5-c) - fresh files, no cache risk; the flasher dialog must say <i>0.4.4-tab5-c</i></span>
+    <esp-web-install-button manifest="manifest-test-jc10.json"></esp-web-install-button>
+    <span class="dim"><b>JC8012P4A1 panel V1</b> (0.4.5-jc10-v1, batch 2627 and lower) - first install: check <i>Erase device</i></span>
   </div>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-tab5b.json"></esp-web-install-button>
-    <span class="dim"><b>Test B: ST7123 path forced</b> (0.4.4-tab5-b) - for 0x55 units that strobe on A</span>
+    <esp-web-install-button manifest="manifest-test-jc10v2.json"></esp-web-install-button>
+    <span class="dim"><b>JC8012P4A1 panel V2</b> (0.4.5-jc10-v2, batch 2628 and higher) - first install: check <i>Erase device</i></span>
   </div>
-  <p>Command line instead? One-shot image:
-  <a href="firmware/test/tab5-c/esp32flight-0.4.4-tab5-c-full.bin">esp32flight-0.4.4-tab5-c-full.bin</a> -
-  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.4-tab5-full.bin</code>
+  <p>Command line: <a href="firmware/test/jc10/esp32flight-0.4.5-jc10-v1-full.bin">V1 merged image</a> /
+  <a href="firmware/test/jc10v2/esp32flight-0.4.5-jc10-v2-full.bin">V2 merged image</a>, then
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
-    <li>Which build (A or B) shows a stable picture.</li>
-    <li>The <i>board:</i> and <i>sitronix touch fw version:</i> lines from the boot log, if you can
-    reach a serial console - they name your panel generation outright.</li>
-    <li>Does touch track your finger?</li>
-    <li>Which panel your unit has, if you know (purchase date helps map generations).</li>
-  </ul>
-</div>
-
-<div class="campaign">
-  <h2>BigTreeTech Panda Touch: SOLVED, shake cured at 120 MHz</h2>
-  <p class="meta">resolved 2026-08-21 &middot; board: BTT Panda Touch (ESP32-S3 R8, 5&Prime; 800x480, GT911, battery) &middot; base: 0.4.4</p>
-  <p>BTT's Bambu-printer remote is a regular ESP32-S3 smart display underneath, and BTT
-  themselves publish the full pin map in their open <a href="https://github.com/bigtreetech/PandaTouch_IDF">PandaTouch_IDF SDK</a> -
-  this build uses their pins and timings verbatim (DE-only panel, reset on GPIO46, 23 MHz pclk).
-  Full 16 MB class: OTA updates and the complete airline logo set included. Heads-up: flashing
-  replaces the stock Bambu-remote firmware; a full-flash backup or BTT's published images bring
-  it back. Bonus of the built-in battery: the radar runs untethered for 20-30 minutes.</p>
-  <p><b>Confirmed working.</b> The first build shook (the Waveshare 7B failure mode: PSRAM at
-  80 MHz cannot feed a 23 MHz-pclk panel and the app at once); matching BTT's own SDK clocks -
-  PSRAM and flash at 120 MHz - cured it, tester-confirmed. The board is now on the
-  <a href="index.html">main flasher page</a>. Third board in a row proving the rule: RGB panels
-  above ~20 MHz pclk need 120 MHz memory clocks.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-pandatouch-b.json"></esp-web-install-button>
-    <span class="dim"><b>Test B: 120 MHz memory clocks</b> (0.4.5-pandatouch, dialog shows 0.4.5-pandatouch-b) - updating from the first build: leave <i>Erase device</i> unchecked, settings survive</span>
-  </div>
-  <p>Prefer the command line? Grab the <a href="firmware/test/pandatouch/esp32flight-0.4.4-pandatouch-full.bin">single merged image</a>
-  and flash it in one go: <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-pandatouch-b-full.bin</code>
-  (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code> restores the Bambu remote).</p>
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Does the display come up, with correct colors (red is red, not blue)?</li>
-    <li>Does touch track your finger (not mirrored or offset)?</li>
-    <li>Does the backlight dim correctly (night mode toggle in settings)?</li>
+    <li>Your batch number and which build you flashed.</li>
+    <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
+    <li>Does touch land where your finger is? If it is mirrored on one axis, tell us which (left/right or up/down).</li>
+    <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
   </ul>
 </div>
 
@@ -183,31 +126,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   </ul>
 </div>
 
-<div class="campaign">
-  <h2>Elecrow CrowPanel 5.0: display window SOLVED</h2>
-  <p class="meta">resolved 2026-08-08 &middot; board: CrowPanel 5.0 (DIS07050H, 4 MB flash)</p>
-  <p>Hardware-confirmed by the first tester: the blanked left zone was the panel's display
-  window - the Guition-family porch timings this board inherited shifted it off-glass. The
-  classic wide 5&Prime; TFT window (Test C3) puts it where the panel expects it, and that fix
-  is now in the build below. Still experimental (4 MB class: updates via this flasher only,
-  no OTA, logos fetched on demand) - reports welcome before it graduates to the main page.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpanel50.json"></esp-web-install-button>
-    <span class="dim"><b>CrowPanel 5.0</b> (0.4.4-crowpanel, display-window fix included)</span>
-  </div>
-</div>
 
-<div class="campaign">
-  <h2>7B display jitter: SOLVED</h2>
-  <p class="meta">resolved 2026-08-08 &middot; the fix ships in the updated 0.4.4-7b build on the <a href="index.html">main page</a></p>
-  <p>Root cause found on affected hardware: PSRAM memory bandwidth. The 1024x600 panel
-  streams ~62 MB/s from PSRAM continuously, and at the 80 MHz our build inherited from the
-  800x480 boards there was no headroom left for screen updates - units with less silicon
-  margin shook on any activity. Waveshare's own firmware runs PSRAM at 120 MHz; matching it
-  eliminated the shake outright. The same update also makes the map screensaver work on the
-  7B for the first time. Just reflash from the main page (settings survive) - the old A/B
-  test builds are retired.</p>
-</div>
 
 <footer class="wrap">
   esp32flight test builds &middot; <a href="index.html">stable releases</a> &middot;
