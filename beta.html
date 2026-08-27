@@ -70,6 +70,33 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 
 <div class="campaign">
+  <h2>Elecrow CrowPanel Advance 7.0 (DIS02170A, V1.2 to V1.5)</h2>
+  <p class="meta">2026-08-27 &middot; board: CrowPanel Advance 7.0, ESP32-S3 N16R8 (16 MB flash / 8 MB PSRAM), 7&Prime; 800x480 RGB, GT911, STC8 backlight helper &middot; base: 0.4.5</p>
+  <p>The Advance-series 7&Prime; is a different animal from the classic CrowPanel 7.0: its own sync
+  pins, I2C on 15/16, and the backlight is not a GPIO at all but a helper MCU (STC8 at I2C
+  0x30) that takes a single brightness byte. Pins and timings come from Elecrow's official
+  ESPHome config for the V1.3/V1.4/V1.5 folder, cross-checked with an independent pinout
+  database; their IDF sample in the same folder still carries copy-pasted Waveshare code and
+  was deliberately not used. Full 16 MB class: OTA and the complete logo set included.
+  <b>Hardware V1.0 is not covered</b> (it drove the backlight through a PCA9557); check the
+  version print on the PCB - V1.2 and up is what this build expects.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-crowpaneladv70.json"></esp-web-install-button>
+    <span class="dim"><b>CrowPanel Advance 7.0, 16 MB</b> (0.4.5-crowpaneladv70) - first install: check <i>Erase device</i></span>
+  </div>
+  <p>Command line: <a href="firmware/test/crowpaneladv70/esp32flight-0.4.5-crowpaneladv70-full.bin">merged image</a>, then
+  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-crowpaneladv70-full.bin</code>
+  (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>The version print on the board (V1.2 / V1.3 / V1.4 / V1.5).</li>
+    <li>Does the backlight come on and the picture show with correct colors (red is red)?</li>
+    <li>Does touch track your finger (not mirrored or offset)?</li>
+    <li>Does night mode dim the panel (that exercises the helper MCU path)?</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>Guition JC8012P4A1: the 10.1&Prime; ESP32-P4 board</h2>
   <p class="meta">2026-08-27 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch, 32 MB PSRAM / 16 MB flash) &middot; base: 0.4.5</p>
   <p>First build for the 10.1&Prime; Guition: MIPI-DSI panel driven the way ESPHome and the
