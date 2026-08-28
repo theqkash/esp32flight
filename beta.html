@@ -106,28 +106,25 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   no way to tell them apart at runtime</b>: look at the batch number on the rear-case sticker.
   Batch <b>2627 or lower</b> is V1, <b>2628 or higher</b> is V2. The wrong one shows horizontal
   lines or nothing.</p>
-  <p><b>Round F (2026-08-28):</b> the panel works; the touch controller is the last piece and
-  we found the real fork in the road: <b>two different GSL3680 firmware tables exist for this
-  glass</b>. Guition's own demo carries one (4587 rows), the espcontrol project - which runs on
-  this board for hundreds of people - carries another (4356 rows). A Silead controller loaded
-  with the wrong one simply reports nothing, which matches every report so far. Both builds
-  below check whether the controller is actually running after the upload and print it in the
-  serial log (<i>firmware check: ... ALIVE</i> or <i>NOT RUNNING</i>), plus raw touch data.
-  Flash F1; if its log says NOT RUNNING or touch stays dead, flash F2. Please send the
-  <i>gsl3680</i> lines from both - they tell us which firmware your unit accepts.</p>
+  <p><b>Round H (2026-08-28):</b> Peter's F1 log settled it: the I2C bus is fine, the firmware
+  upload is acknowledged, yet the controller reports <i>NOT RUNNING</i>. Guition's own BSP
+  declares the touch reset pin as "not connected - shared with the LCD reset", so their
+  post-upload reset only touches registers; our driver pulsed a real reset line right after
+  the upload and wiped the firmware it had just loaded. Fixed: one hardware reset before the
+  upload, register-only resets after. Two builds again, one per firmware table:</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10f1.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch F1</b> (0.4.5-jc10-v1-f1, Guition firmware table)</span>
+    <esp-web-install-button manifest="manifest-test-jc10h1.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch H1</b> (0.4.5-jc10-v1-h1, Guition firmware table) - try first</span>
   </div>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10f2.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch F2</b> (0.4.5-jc10-v1-f2, espcontrol firmware table)</span>
+    <esp-web-install-button manifest="manifest-test-jc10h2.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch H2</b> (0.4.5-jc10-v1-h2, espcontrol firmware table)</span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10f1/esp32flight-0.4.5-jc10-v1-f1-full.bin">V1 F1</a> / <a href="firmware/test/jc10f2/esp32flight-0.4.5-jc10-v1-f2-full.bin">V1 F2</a> /
+  <p>Command line: <a href="firmware/test/jc10h1/esp32flight-0.4.5-jc10-v1-h1-full.bin">V1 H1</a> / <a href="firmware/test/jc10h2/esp32flight-0.4.5-jc10-v1-h2-full.bin">V1 H2</a> /
   <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
@@ -135,7 +132,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <ul>
     <li>Your batch number and which build you flashed.</li>
     <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
-    <li>The <i>gsl3680</i> serial lines from F1 and F2 (probe, firmware check, and any touches).</li>
+    <li>The <i>gsl3680: firmware check</i> line from H1 (and H2 if needed), and whether touch works.</li>
     <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
   </ul>
 </div>
