@@ -115,13 +115,24 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   always come up on the first upload. Both K builds use the factory table and keep retrying until
   the controller's signature reads alive, logging every attempt. K1 holds the core during the
   upload (espcontrol style), K2 does not (Guition IDF style).</p>
+  <p><b>Round K4 (2026-08-28), expected final:</b> K1 proved the touch hardware works (the
+  earlier "hardware fault" suspicion is withdrawn - the stock-image test was misled by the same
+  problems our builds had). Peter's four-corner tap log then revealed the last surprise: the
+  factory touch firmware reports in the controller's own sensor grid, 1664 x 896 units with both
+  axes inverted - not in pixels, and not in any frame the references document. Mirror/swap flags
+  can never fix that; it needs scaling. K4 converts the grid to pixels directly, and every point
+  from the log lands where the finger was, corners within ~20 px.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-jc10k4.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch K4</b> (0.4.5-jc10-v1-k4, calibrated grid mapping) - flash this one</span>
+  </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10k1.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K1</b> (0.4.5-jc10-v1-k1, factory table, hold flow, retries)</span>
+    <span class="dim"><b>Panel V1, touch K1</b> (0.4.5-jc10-v1-k1, superseded by K3, kept for reference)</span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10k2.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K2</b> (0.4.5-jc10-v1-k2, factory table, IDF flow, retries)</span>
+    <span class="dim"><b>Panel V1, touch K2</b> (0.4.5-jc10-v1-k2, superseded by K3, kept for reference)</span>
   </div>
   <p>Hardware sanity check, if both fail: flash Guition's stock image
   (<a href="https://github.com/sukesh-ak/JC8012P4A1-GUITION-ESP32-P4_ESP32-C6/tree/main/8-Burn%20operation/Burn%20files">JC8012P4A1_P4-V1.2.bin from their GitHub</a>,
@@ -131,7 +142,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
     <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
+  <p>Command line: <a href="firmware/test/jc10k4/esp32flight-0.4.5-jc10-v1-k4-full.bin">V1 K4</a> / <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
   <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
@@ -139,7 +150,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <ul>
     <li>Your batch number and which build you flashed.</li>
     <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
-    <li>The <i>gsl3680: firmware check (attempt N)</i> lines from K1 and K2, whether touch works, and - if both fail - whether touch works on the factory image.</li>
+    <li>K4: does the touch land exactly under your finger everywhere on the screen?</li>
     <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
   </ul>
 </div>
