@@ -127,6 +127,10 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
     <span class="dim"><b>Panel V1, touch K4</b> (0.4.5-jc10-v1-k4, calibrated grid mapping) - flash this one</span>
   </div>
   <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-jc10k3.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch K3</b> (0.4.5-jc10-v1-k3, flags-only mapping without grid scaling - by the corner-log math it should land off, kept for comparison)</span>
+  </div>
+  <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10k1.json"></esp-web-install-button>
     <span class="dim"><b>Panel V1, touch K1</b> (0.4.5-jc10-v1-k1, superseded by K4, kept for reference)</span>
   </div>
@@ -142,7 +146,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
     <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10k4/esp32flight-0.4.5-jc10-v1-k4-full.bin">V1 K4</a> / <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
+  <p>Command line: <a href="firmware/test/jc10k4/esp32flight-0.4.5-jc10-v1-k4-full.bin">V1 K4</a> / <a href="firmware/test/jc10k3/esp32flight-0.4.5-jc10-v1-k3-full.bin">V1 K3</a> / <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
   <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
