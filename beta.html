@@ -106,22 +106,23 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   no way to tell them apart at runtime</b>: look at the batch number on the rear-case sticker.
   Batch <b>2627 or lower</b> is V1, <b>2628 or higher</b> is V2. The wrong one shows horizontal
   lines or nothing.</p>
-  <p><b>Round D (2026-08-28):</b> panel V1 works; touch is the last open item and the reports so
-  far ("wrong place", then "nothing at all") point at a coordinate-frame mismatch that guessing
-  will not settle. Test D keeps the C1 mapping, clamps out-of-range values so a touch can no
-  longer vanish off-screen, and <b>prints every touch to the serial log</b> - raw controller
-  values and the mapped point. With the serial console open, tap the four corners of the screen
-  (top-left, top-right, bottom-left, bottom-right, in that order) and the centre, then paste the
-  <i>gsl3680: raw:</i> and <i>lv_port: touch after flags:</i> lines. That fixes the mapping in one go.</p>
+  <p><b>Round E (2026-08-28):</b> panel V1 works; touch is the last open item. Test E answers the
+  question that matters first: <b>is the touch controller's firmware actually running?</b> At boot
+  it reads the GSL3680's signature register and logs <i>firmware check: ... ALIVE</i> or
+  <i>NOT RUNNING</i>. While running it prints a heartbeat line every two seconds with the raw
+  bytes the controller returns, and every touch it sees as raw values plus the mapped point.
+  With the serial console open: flash, wait for boot, keep a finger pressed on the screen for
+  a few seconds, then tap the four corners (top-left, top-right, bottom-left, bottom-right) and
+  the centre. Paste everything containing <i>gsl3680</i> and <i>lv_port: touch</i> - about 20 lines.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10d.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, Test D (touch diagnostics)</b> (0.4.5-jc10-v1-d)</span>
+    <esp-web-install-button manifest="manifest-test-jc10e.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, Test E (touch diagnostics)</b> (0.4.5-jc10-v1-e)</span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10d/esp32flight-0.4.5-jc10-v1-d-full.bin">V1 Test D</a> /
+  <p>Command line: <a href="firmware/test/jc10e/esp32flight-0.4.5-jc10-v1-e-full.bin">V1 Test E</a> /
   <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
@@ -129,7 +130,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <ul>
     <li>Your batch number and which build you flashed.</li>
     <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
-    <li>The serial lines from the four-corner tap test (Test D).</li>
+    <li>The serial lines from Test E (firmware check, heartbeat, and the four-corner taps).</li>
     <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
   </ul>
 </div>
