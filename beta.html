@@ -106,28 +106,34 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   no way to tell them apart at runtime</b>: look at the batch number on the rear-case sticker.
   Batch <b>2627 or lower</b> is V1, <b>2628 or higher</b> is V2. The wrong one shows horizontal
   lines or nothing.</p>
-  <p><b>Round B (2026-08-28):</b> the first tester (thanks, Peter) got Wi-Fi, a recognised panel
-  (<i>LCD ID: 93 65 04</i>) and a lit backlight - but a black picture and no touch. Both were
-  ours: the JD9365 init tables lacked the final sleep-out/display-on commands (Espressif's driver
-  expects them in the table, ESPHome adds them itself - the presets came from ESPHome), and the
-  touch driver spoke to the GSL3680 while still holding its reset line. Fixed builds, fresh paths:</p>
+  <p><b>Round C (2026-08-28):</b> round B put the picture on the glass (thanks again, Peter -
+  panel V1 confirmed working), and the GSL3680 now takes its firmware; what is left is the touch
+  axis mapping. LVGL rotates pointer coordinates itself on this rotated panel, and the GSL3680
+  is reported to deliver its X axis inverted versus the panel frame, so C1 mirrors X. If C1 still
+  lands wrong, C2 is the raw mapping - and please say which way it is off (left/right swapped,
+  up/down swapped, or both), that pins the last combination down:</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10b.json"></esp-web-install-button>
-    <span class="dim"><b>JC8012P4A1 panel V1, round B</b> (0.4.5-jc10-v1-b, batch 2627 and lower) - the flasher dialog must say <i>-v1-b</i></span>
+    <esp-web-install-button manifest="manifest-test-jc10c1.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch C1</b> (0.4.5-jc10-v1-c1, X mirrored) - try this first</span>
   </div>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2b.json"></esp-web-install-button>
-    <span class="dim"><b>JC8012P4A1 panel V2, round B</b> (0.4.5-jc10-v2-b, batch 2628 and higher) - the flasher dialog must say <i>-v2-b</i></span>
+    <esp-web-install-button manifest="manifest-test-jc10c2.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V1, touch C2</b> (0.4.5-jc10-v1-c2, raw axes) - if C1 is still off</span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10b/esp32flight-0.4.5-jc10-v1-b-full.bin">V1 merged image</a> /
-  <a href="firmware/test/jc10v2b/esp32flight-0.4.5-jc10-v2-b-full.bin">V2 merged image</a>, then
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V2, touch C1 mapping</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
+  </div>
+  <p>Command line: <a href="firmware/test/jc10c1/esp32flight-0.4.5-jc10-v1-c1-full.bin">V1 C1</a> /
+  <a href="firmware/test/jc10c2/esp32flight-0.4.5-jc10-v1-c2-full.bin">V1 C2</a> /
+  <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
     <li>Your batch number and which build you flashed.</li>
     <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
-    <li>Does touch land where your finger is? If it is mirrored on one axis, tell us which (left/right or up/down).</li>
+    <li>Which touch build (C1 or C2) lands under your finger; if neither, which axis is off.</li>
     <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
   </ul>
 </div>

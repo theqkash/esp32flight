@@ -1,0 +1,32 @@
+{
+  "name": "esp32flight test",
+  "version": "0.4.5-jc10-v2-c",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-P4",
+      "parts": [
+        {
+          "path": "firmware/test/jc10v2c/bootloader.bin",
+          "offset": 8192
+        },
+        {
+          "path": "firmware/test/jc10v2c/partition-table.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/test/jc10v2c/ota_data_initial.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/test/jc10v2c/esp32flight.bin",
+          "offset": 131072
+        },
+        {
+          "path": "firmware/test/jc10v2c/assets.bin",
+          "offset": 5373952
+        }
+      ]
+    }
+  ]
+}
