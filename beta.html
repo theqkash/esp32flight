@@ -97,24 +97,15 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 </div>
 
 <div class="campaign">
-  <h2>Guition JC8012P4A1: the 10.1&Prime; ESP32-P4 board</h2>
-  <p class="meta">2026-08-27 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch, 32 MB PSRAM / 16 MB flash) &middot; base: 0.4.5</p>
-  <p>First build for the 10.1&Prime; Guition: MIPI-DSI panel driven the way ESPHome and the
-  espcontrol/BETTA projects drive it (their field-proven init tables and timings), Wi-Fi over
-  the C6 co-processor, and a touch driver written for the Silead GSL3680 (it needs a firmware
-  upload at every boot - that is normal, not a fault). <b>Two panel revisions exist and there is
-  no way to tell them apart at runtime</b>: look at the batch number on the rear-case sticker.
-  Batch <b>2627 or lower</b> is V1, <b>2628 or higher</b> is V2. The wrong one shows horizontal
-  lines or nothing.</p>
-  <p><b>Round K (2026-08-28):</b> J2 settled one thing for good: Guition's own driver with
-  Guition's demo firmware table does not start the controller on this unit either, so the demo
-  table is not what current units run. Two new facts changed the plan: the firmware table inside
-  <b>Guition's factory image</b> (JC8012P4A1_P4-V1.2.bin) is byte-identical to the one the
-  espcontrol project ships - not the demo one - and the BETTA project, which also runs on this
-  board, <b>retries the touch bring-up up to eight times</b> because the Silead core does not
-  always come up on the first upload. Both K builds use the factory table and keep retrying until
-  the controller's signature reads alive, logging every attempt. K1 holds the core during the
-  upload (espcontrol style), K2 does not (Guition IDF style).</p>
+  <h2>Guition JC8012P4A1: the 10.1&Prime; ESP32-P4 board - CONFIRMED WORKING</h2>
+  <p class="meta">2026-08-29 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch, 32 MB PSRAM / 16 MB flash) &middot; base: 0.4.5</p>
+  <p><b>Panel V1 hardware-confirmed end to end</b> (display, Wi-Fi over the C6, touch) - enormous
+  thanks to Peter, who tested eleven rounds from Thailand and whose serial logs solved every
+  layer of it. What it took, for the record: the two panel revisions need different init tables;
+  the touch firmware in Guition's public demos is outdated (the factory image and the espcontrol
+  project carry the real one); the Silead core needs the bring-up retried until its signature
+  reads alive; and the touch reports a raw 1664x896 sensor grid with both axes inverted, which
+  needs scaling, not axis flips. All of it is in the K4 build below.</p>
   <p><b>Round K4 (2026-08-28), expected final:</b> K1 proved the touch hardware works (the
   earlier "hardware fault" suspicion is withdrawn - the stock-image test was misled by the same
   problems our builds had). Peter's four-corner tap log then revealed the last surprise: the
@@ -124,7 +115,7 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   from the log lands where the finger was, corners within ~20 px.</p>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10k4.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K4</b> (0.4.5-jc10-v1-k4, calibrated grid mapping) - flash this one</span>
+    <span class="dim"><b>Panel V1, K4</b> (0.4.5-jc10-v1-k4) - <b>confirmed working, flash this one</b></span>
   </div>
   <div class="btnrow">
     <esp-web-install-button manifest="manifest-test-jc10k3.json"></esp-web-install-button>
@@ -143,11 +134,11 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <code>esptool.py --chip esp32p4 write_flash 0x0 JC8012P4A1_P4-V1.2.bin</code>) and see whether touch works
   there. If the factory firmware cannot use the touch either, it is the panel, not the software.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2c.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-c, batch 2628 and higher) - untested revision, reports welcome</span>
+    <esp-web-install-button manifest="manifest-test-jc10v2d.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-d, batch 2628 and higher, all K4 touch fixes included) - untested revision, reports welcome</span>
   </div>
   <p>Command line: <a href="firmware/test/jc10k4/esp32flight-0.4.5-jc10-v1-k4-full.bin">V1 K4</a> / <a href="firmware/test/jc10k3/esp32flight-0.4.5-jc10-v1-k3-full.bin">V1 K3</a> / <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
-  <a href="firmware/test/jc10v2c/esp32flight-0.4.5-jc10-v2-c-full.bin">V2</a> merged images, then
+  <a href="firmware/test/jc10v2d/esp32flight-0.4.5-jc10-v2-d-full.bin">V2</a> merged images, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
