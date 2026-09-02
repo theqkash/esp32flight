@@ -32,6 +32,9 @@ nav .gh{background:var(--accent);color:#06130c!important;border-radius:10px;padd
 nav .dc{background:#5865F2;color:#fff!important;border-radius:10px;padding:7px 15px;font-weight:600}
 .btn.discord{background:#5865F2;color:#fff;border:0}
 .btn.discord:hover{filter:brightness(1.1)}
+.btn.kofi{background:#ff5e5b;color:#fff;border:0}
+.btn.kofi:hover{filter:brightness(1.1)}
+.kf{color:#ff8a88!important}
 @media(max-width:720px){nav .links a:not(.gh):not(.dc){display:none}}
 
 .hero{position:relative;padding:84px 0 70px}
@@ -117,6 +120,7 @@ footer a:hover{color:var(--accent)}
     <a href="#hardware">Hardware</a>
     <a href="#install">Install</a>
     <a href="https://github.com/theqkash/esp32flight/wiki">Wiki</a>
+    <a class="kf" href="https://ko-fi.com/theqkash">Ko-fi &#10084;</a>
     <a class="dc" href="https://discord.gg/CwH8XKRnpz">Discord</a>
     <a class="gh" href="https://github.com/theqkash/esp32flight">GitHub</a>
   </div>
@@ -139,6 +143,7 @@ footer a:hover{color:var(--accent)}
         <a class="btn" href="#install">Flash from your browser</a>
         <a class="btn ghost" href="https://github.com/theqkash/esp32flight/releases/latest">Android APK</a>
         <a class="btn discord" href="https://discord.gg/CwH8XKRnpz">Join the Discord</a>
+        <a class="btn kofi" href="https://ko-fi.com/theqkash">&#9749; Support on Ko-fi</a>
       </div>
     </div>
     <div class="stack">
@@ -212,11 +217,14 @@ footer a:hover{color:var(--accent)}
     <tr><td>Waveshare ESP32-S3 Touch LCD 7C BOX</td><td>7&Prime; 800&times;480</td><td>about $70</td><td>enclosure, battery and audio hardware on board</td></tr>
     <tr><td>BigTreeTech Panda Touch</td><td>5&Prime; 800&times;480</td><td>about $75</td><td>the Bambu pendant reborn; replaces its stock firmware</td></tr>
     <tr><td>M5Stack Tab5</td><td>5&Prime; 1280&times;720</td><td>about $60</td><td>ESP32-P4, portable with a battery; all three panel generations</td></tr>
+    <tr><td>Elecrow CrowPanel Advance 7.0 (V1.2+)</td><td>7&Prime; 800&times;480</td><td>about $35</td><td>the newer Advance series, real backlight dimming</td></tr>
+    <tr><td>Guition JC8012P4A1</td><td>10.1&Prime; 800&times;1280</td><td>about $40</td><td>ESP32-P4, the biggest screen of the fleet</td></tr>
   </table>
   <p class="note">Not sure about your flash size? Check the metal module: N16R8 = 16 MB, N8R8 = 8 MB,
   N4R8 = 4 MB. Unbranded 7&Prime; board? See the identification hint under the flash buttons.
   An old Android tablet (5.0+) works too - same firmware core, packaged as an APK.
-  New boards hatch on the <a href="beta.html">test builds page</a>.</p>
+  New boards hatch on the <a href="beta.html">test builds page</a> - right now that is where the
+  CrowPanel Advance 7.0, the 10.1&Prime; JC8012P4A1 and the Panda Touch live until the next release.</p>
 </div></section>
 
 <section id="install"><div class="wrap">
@@ -298,6 +306,14 @@ footer a:hover{color:var(--accent)}
   ships by <a href="https://aisstream.io">aisstream.io</a> and airspace by
   <a href="https://www.openaip.net">openAIP</a> (the last two with your own free keys). The full field-by-field
   reference lives in <a href="https://github.com/theqkash/esp32flight/blob/main/docs/DATA-MODEL.md">DATA-MODEL.md</a>.</p>
+</div></section>
+
+<section><div class="wrap" style="text-align:center;padding:34px 20px">
+  <h2 style="margin-bottom:8px">Keep the boards coming</h2>
+  <p class="sub" style="max-width:560px;margin:0 auto 18px">esp32flight is free and open source.
+  Every supported display got here because a physical board landed on my desk -
+  a coffee on Ko-fi funds the next port.</p>
+  <a class="btn kofi" href="https://ko-fi.com/theqkash">&#9749; Support the project on Ko-fi</a>
 </div></section>
 
 <footer><div class="wrap">
