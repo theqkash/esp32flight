@@ -70,113 +70,28 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 
 <div class="campaign">
-  <h2>Elecrow CrowPanel Advance 7.0 (DIS02170A, V1.2 to V1.5)</h2>
-  <p class="meta">2026-08-27 &middot; board: CrowPanel Advance 7.0, ESP32-S3 N16R8 (16 MB flash / 8 MB PSRAM), 7&Prime; 800x480 RGB, GT911, STC8 backlight helper &middot; base: 0.4.5</p>
-  <p>The Advance-series 7&Prime; is a different animal from the classic CrowPanel 7.0: its own sync
-  pins, I2C on 15/16, and the backlight is not a GPIO at all but a helper MCU (STC8 at I2C
-  0x30) that takes a single brightness byte. Pins and timings come from Elecrow's official
-  ESPHome config for the V1.3/V1.4/V1.5 folder, cross-checked with an independent pinout
-  database; their IDF sample in the same folder still carries copy-pasted Waveshare code and
-  was deliberately not used. Full 16 MB class: OTA and the complete logo set included.
-  <b>Hardware V1.0 is not covered</b> (it drove the backlight through a PCA9557); check the
-  version print on the PCB - V1.2 and up is what this build expects.</p>
+  <h2>Guition JC8012P4A1: panel revision V2 (batch 2628+)</h2>
+  <p class="meta">2026-09-03 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.6</p>
+  <p>Panel revision <b>V1 is confirmed working and lives on the <a href="index.html">stable
+  flasher</a> now</b>. The V2 glass (rear-case batch number 2628 and higher) uses different
+  MIPI timings and its own init table, and no V2 owner has reported back yet. This build
+  carries everything the V1 saga fixed (factory touch firmware table, bring-up retries, sensor
+  grid scaling) on the V2 display path.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpaneladv70.json"></esp-web-install-button>
-    <span class="dim"><b>CrowPanel Advance 7.0, 16 MB</b> (0.4.5-crowpaneladv70) - first install: check <i>Erase device</i></span>
+    <esp-web-install-button manifest="manifest-test-jc10v2-046.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V2</b> (0.4.6-jc10-v2) - first install: check <i>Erase device</i></span>
   </div>
-  <p>Command line: <a href="firmware/test/crowpaneladv70/esp32flight-0.4.5-crowpaneladv70-full.bin">merged image</a>, then
-  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.5-crowpaneladv70-full.bin</code>
+  <p>Command line: <a href="firmware/test/jc10v2-046/esp32flight-0.4.6-jc10-v2-full.bin">merged image</a>, then
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.6-jc10-v2-full.bin</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
-    <li>The version print on the board (V1.2 / V1.3 / V1.4 / V1.5).</li>
-    <li>Does the backlight come on and the picture show with correct colors (red is red)?</li>
-    <li>Does touch track your finger (not mirrored or offset)?</li>
-    <li>Does night mode dim the panel (that exercises the helper MCU path)?</li>
+    <li>Your batch number (the four digits on the rear case).</li>
+    <li>Does the picture come up clean (no horizontal lines, not blank)?</li>
+    <li>Does touch land exactly under your finger everywhere on the screen?</li>
+    <li>Does Wi-Fi connect?</li>
   </ul>
 </div>
-
-<div class="campaign">
-  <h2>Guition JC8012P4A1: the 10.1&Prime; ESP32-P4 board - CONFIRMED WORKING</h2>
-  <p class="meta">2026-08-29 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch, 32 MB PSRAM / 16 MB flash) &middot; base: 0.4.5</p>
-  <p><b>Panel V1 hardware-confirmed end to end</b> (display, Wi-Fi over the C6, touch) - enormous
-  thanks to Peter, who tested eleven rounds from Thailand and whose serial logs solved every
-  layer of it. What it took, for the record: the two panel revisions need different init tables;
-  the touch firmware in Guition's public demos is outdated (the factory image and the espcontrol
-  project carry the real one); the Silead core needs the bring-up retried until its signature
-  reads alive; and the touch reports a raw 1664x896 sensor grid with both axes inverted, which
-  needs scaling, not axis flips. All of it is in the K4 build below.</p>
-  <p><b>Round K4 (2026-08-28), expected final:</b> K1 proved the touch hardware works (the
-  earlier "hardware fault" suspicion is withdrawn - the stock-image test was misled by the same
-  problems our builds had). Peter's four-corner tap log then revealed the last surprise: the
-  factory touch firmware reports in the controller's own sensor grid, 1664 x 896 units with both
-  axes inverted - not in pixels, and not in any frame the references document. Mirror/swap flags
-  can never fix that; it needs scaling. K4 converts the grid to pixels directly, and every point
-  from the log lands where the finger was, corners within ~20 px.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10k4.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, K4</b> (0.4.5-jc10-v1-k4) - <b>confirmed working, flash this one</b></span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10k3.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K3</b> (0.4.5-jc10-v1-k3, flags-only mapping without grid scaling - by the corner-log math it should land off, kept for comparison)</span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10k1.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K1</b> (0.4.5-jc10-v1-k1, superseded by K4, kept for reference)</span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10k2.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V1, touch K2</b> (0.4.5-jc10-v1-k2, superseded by K4, kept for reference)</span>
-  </div>
-  <p>Hardware sanity check, if both fail: flash Guition's stock image
-  (<a href="https://github.com/sukesh-ak/JC8012P4A1-GUITION-ESP32-P4_ESP32-C6/tree/main/8-Burn%20operation/Burn%20files">JC8012P4A1_P4-V1.2.bin from their GitHub</a>,
-  <code>esptool.py --chip esp32p4 write_flash 0x0 JC8012P4A1_P4-V1.2.bin</code>) and see whether touch works
-  there. If the factory firmware cannot use the touch either, it is the panel, not the software.</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2d.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V2</b> (0.4.5-jc10-v2-d, batch 2628 and higher, all K4 touch fixes included) - untested revision, reports welcome</span>
-  </div>
-  <p>Command line: <a href="firmware/test/jc10k4/esp32flight-0.4.5-jc10-v1-k4-full.bin">V1 K4</a> / <a href="firmware/test/jc10k3/esp32flight-0.4.5-jc10-v1-k3-full.bin">V1 K3</a> / <a href="firmware/test/jc10k1/esp32flight-0.4.5-jc10-v1-k1-full.bin">V1 K1</a> / <a href="firmware/test/jc10k2/esp32flight-0.4.5-jc10-v1-k2-full.bin">V1 K2</a> /
-  <a href="firmware/test/jc10v2d/esp32flight-0.4.5-jc10-v2-d-full.bin">V2</a> merged images, then
-  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 &lt;image&gt;</code>
-  (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Your batch number and which build you flashed.</li>
-    <li>Does the picture come up, the right way round? If it is upside down, say so - a rotated build is one switch away.</li>
-    <li>K4: does the touch land exactly under your finger everywhere on the screen?</li>
-    <li>Does Wi-Fi connect (the C6 link is the other unknown on first hardware)?</li>
-  </ul>
-</div>
-
-<div class="campaign">
-  <h2>7&Prime; Amazon HMI boards: they are CrowPanel 7.0 rebrands</h2>
-  <p class="meta">2026-08-11 &middot; board: Elecrow CrowPanel 7.0 (DIS08070H) and unbranded 7&Prime; rebrands (IoTeikXgo etc., EK9716BD3 driver, 4 MB flash) &middot; base: 0.4.4</p>
-  <p>Plot twist confirmed by the listing's own support links: the no-name 7&Prime; Amazon boards
-  are rebranded Elecrow CrowPanel 7.0 units - not Suntons. Their PCLK sits on GPIO0 (like the
-  CrowPanel 5.0 we already run) and the data bus differs from the Sunton 7&Prime; too. This build
-  carries Elecrow's official pin map and timings on the 4 MB class (updates via this flasher,
-  no OTA; airline logos load on demand):</p>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-crowpanel70.json"></esp-web-install-button>
-    <span class="dim"><b>CrowPanel 7.0 / 7&Prime; Amazon rebrands, 4 MB</b> (0.4.4-crowpanel70) - first install: check <i>Erase device</i></span>
-  </div>
-  <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-sunton70-v3.json"></esp-web-install-button>
-    <span class="dim"><b>Genuine Sunton 8048S070, 16 MB</b> (0.4.4-sunton70, v3 files) - owner-tuned 2026-08:
-    R/B bus halves flipped (red rendered blue; the corrected bus matches the CrowPanel 7.0
-    wiring) and horizontal porches re-balanced to center the display window</span>
-  </div>
-  <p>When reporting, include:</p>
-  <ul>
-    <li>Does the display come up, with correct colors (red is red, not blue)?</li>
-    <li>Does touch track your finger (not mirrored or offset)?</li>
-    <li>A photo of the PCB back (model silk print), if you can.</li>
-  </ul>
-</div>
-
-
 
 <footer class="wrap">
   esp32flight test builds &middot; <a href="index.html">stable releases</a> &middot;
