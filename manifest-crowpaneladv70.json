@@ -1,29 +1,29 @@
 {
   "name": "esp32flight",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/0.4.6/crowpaneladv70/bootloader.bin",
+          "path": "firmware/0.4.7/crowpaneladv70/bootloader.bin",
           "offset": 0
         },
         {
-          "path": "firmware/0.4.6/crowpaneladv70/partition-table.bin",
+          "path": "firmware/0.4.7/crowpaneladv70/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.6/crowpaneladv70/ota_data_initial.bin",
+          "path": "firmware/0.4.7/crowpaneladv70/ota_data_initial.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.6/crowpaneladv70/esp32flight.bin",
+          "path": "firmware/0.4.7/crowpaneladv70/esp32flight.bin",
           "offset": 131072
         },
         {
-          "path": "firmware/0.4.6/crowpaneladv70/assets.bin",
+          "path": "firmware/0.4.7/crowpaneladv70/assets.bin",
           "offset": 5373952
         }
       ]

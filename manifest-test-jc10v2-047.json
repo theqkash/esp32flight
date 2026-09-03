@@ -7,23 +7,23 @@
       "chipFamily": "ESP32-P4",
       "parts": [
         {
-          "path": "firmware/0.4.7/jc10/bootloader.bin",
+          "path": "firmware/test/jc10v2-047/bootloader.bin",
           "offset": 8192
         },
         {
-          "path": "firmware/0.4.7/jc10/partition-table.bin",
+          "path": "firmware/test/jc10v2-047/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.7/jc10/ota_data_initial.bin",
+          "path": "firmware/test/jc10v2-047/ota_data_initial.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.7/jc10/esp32flight.bin",
+          "path": "firmware/test/jc10v2-047/esp32flight.bin",
           "offset": 131072
         },
         {
-          "path": "firmware/0.4.7/jc10/assets.bin",
+          "path": "firmware/test/jc10v2-047/assets.bin",
           "offset": 5373952
         }
       ]

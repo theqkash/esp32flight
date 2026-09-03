@@ -71,18 +71,18 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 <div class="campaign">
   <h2>Guition JC8012P4A1: panel revision V2 (batch 2628+)</h2>
-  <p class="meta">2026-09-03 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.6</p>
+  <p class="meta">2026-09-03 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.7</p>
   <p>Panel revision <b>V1 is confirmed working and lives on the <a href="index.html">stable
   flasher</a> now</b>. The V2 glass (rear-case batch number 2628 and higher) uses different
   MIPI timings and its own init table, and no V2 owner has reported back yet. This build
   carries everything the V1 saga fixed (factory touch firmware table, bring-up retries, sensor
   grid scaling) on the V2 display path.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2-046.json"></esp-web-install-button>
-    <span class="dim"><b>Panel V2</b> (0.4.6-jc10-v2) - first install: check <i>Erase device</i></span>
+    <esp-web-install-button manifest="manifest-test-jc10v2-047.json"></esp-web-install-button>
+    <span class="dim"><b>Panel V2</b> (0.4.7-jc10-v2) - first install: check <i>Erase device</i></span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10v2-046/esp32flight-0.4.6-jc10-v2-full.bin">merged image</a>, then
-  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.6-jc10-v2-full.bin</code>
+  <p>Command line: <a href="firmware/test/jc10v2-047/esp32flight-0.4.7-jc10-v2-full.bin">merged image</a>, then
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.7-jc10-v2-full.bin</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
