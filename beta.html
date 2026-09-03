@@ -70,6 +70,29 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 
 <div class="campaign">
+  <h2>Waveshare 7B: fix for the 0.4.6 screen shake / screensaver crash</h2>
+  <p class="meta">2026-09-03 &middot; board: Waveshare ESP32-S3-Touch-LCD-7B (1024x600) &middot; base: 0.4.7 (= 0.4.6 + the fix)</p>
+  <p>0.4.6 switched the basemap to OpenStreetMap tiles, which take several times longer to
+  decode than the old CARTO ones. A full-screen map render (the screensaver above all) decoded
+  every tile back to back and starved the watchdog - shaking on 800x480 boards, a crash on the
+  7B where the render pass is longest. This build yields between tiles; already verified clean
+  on an 800x480 board, and the 7B is the board that needs the confirmation.</p>
+  <div class="btnrow">
+    <esp-web-install-button manifest="manifest-test-7b-047.json"></esp-web-install-button>
+    <span class="dim"><b>Waveshare 7B</b> (0.4.7-7b) - update install: leave <i>Erase device</i> unchecked, settings survive</span>
+  </div>
+  <p>OTA alternative: <a href="firmware/test/7b-047/esp32flight-0.4.7-7b-ota.bin">esp32flight-0.4.7-7b-ota.bin</a>
+  through the web panel. Command line: <a href="firmware/test/7b-047/esp32flight-0.4.7-7b-full.bin">merged image</a>,
+  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.7-7b-full.bin</code>.</p>
+  <p>When reporting, include:</p>
+  <ul>
+    <li>Does the screensaver map load without the crash and without shaking?</li>
+    <li>Let it sit through a few screensaver cycles - was every one clean?</li>
+    <li>Which version you came from (0.4.5b or 0.4.6).</li>
+  </ul>
+</div>
+
+<div class="campaign">
   <h2>Guition JC8012P4A1: panel revision V2 (batch 2628+)</h2>
   <p class="meta">2026-09-03 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.7</p>
   <p>Panel revision <b>V1 is confirmed working and lives on the <a href="index.html">stable
