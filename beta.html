@@ -75,14 +75,16 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   <p>0.4.6 switched the basemap to OpenStreetMap tiles, which take several times longer to
   decode than the old CARTO ones. A full-screen map render (the screensaver above all) decoded
   every tile back to back and starved the watchdog - shaking on 800x480 boards, a crash on the
-  7B where the render pass is longest. This build yields between tiles; already verified clean
-  on an 800x480 board, and the 7B is the board that needs the confirmation.</p>
+  7B where the render pass is longest. <b>Round 2</b> adds the second half of the fix: tiles now
+  decode in their native palette format (a quarter of the memory, measurably faster), which also
+  cures missing map blocks on the route view. Verified clean on an 800x480 board; the 7B is the
+  board that needs the confirmation.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7b-047.json"></esp-web-install-button>
+    <esp-web-install-button manifest="manifest-test-7b-047r2.json"></esp-web-install-button>
     <span class="dim"><b>Waveshare 7B</b> (0.4.7-7b) - update install: leave <i>Erase device</i> unchecked, settings survive</span>
   </div>
-  <p>OTA alternative: <a href="firmware/test/7b-047/esp32flight-0.4.7-7b-ota.bin">esp32flight-0.4.7-7b-ota.bin</a>
-  through the web panel. Command line: <a href="firmware/test/7b-047/esp32flight-0.4.7-7b-full.bin">merged image</a>,
+  <p>OTA alternative: <a href="firmware/test/7b-047r2/esp32flight-0.4.7-7b-ota.bin">esp32flight-0.4.7-7b-ota.bin</a>
+  through the web panel. Command line: <a href="firmware/test/7b-047r2/esp32flight-0.4.7-7b-full.bin">merged image</a>,
   <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.7-7b-full.bin</code>.</p>
   <p>When reporting, include:</p>
   <ul>
@@ -101,10 +103,10 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
   carries everything the V1 saga fixed (factory touch firmware table, bring-up retries, sensor
   grid scaling) on the V2 display path.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2-047.json"></esp-web-install-button>
+    <esp-web-install-button manifest="manifest-test-jc10v2-047r2.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.7-jc10-v2) - first install: check <i>Erase device</i></span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10v2-047/esp32flight-0.4.7-jc10-v2-full.bin">merged image</a>, then
+  <p>Command line: <a href="firmware/test/jc10v2-047r2/esp32flight-0.4.7-jc10-v2-full.bin">merged image</a>, then
   <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.7-jc10-v2-full.bin</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
