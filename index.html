@@ -100,6 +100,8 @@ td:first-child{color:var(--text);font-weight:500}
 
 .flash{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:30px;margin-top:6px}
 .btnrow{display:flex;align-items:center;gap:16px;margin:16px 0;flex-wrap:wrap}
+.warnbox{border:1px solid #ffd166;background:rgba(255,209,102,.08);border-radius:14px;padding:16px 20px;margin:18px 0 22px;font-size:14.5px;line-height:1.5}
+.warnbox b{color:#ffd166}
 esp-web-install-button{--esp-tools-button-color:var(--accent);--esp-tools-button-text-color:#06120b}
 .dim{color:var(--help);font-size:14px}
 code{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:13px;color:#cfe4d6}
@@ -232,6 +234,12 @@ footer a:hover{color:var(--accent)}
   <p class="lede">Connect the board over USB, click Install, pick the serial port. Everything -
   firmware, airline logos, maps, airport database - is written in one go. Chrome or Edge on desktop
   required (Web Serial).</p>
+  <div class="warnbox">
+    <b>&#9888; FlightAware integration: known issue.</b> A bug in the current firmware makes the optional
+    FlightAware AeroAPI integration burn through API credits far faster than intended. <b>Leave the
+    FlightAware key empty for now</b> - the fix ships with the next esp32flight update in the second half
+    of October 2026. Everything else works without it.
+  </div>
   <div class="flash">
     <div class="btnrow">
       <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
