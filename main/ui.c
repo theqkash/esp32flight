@@ -1041,6 +1041,10 @@ static void emb_tiles_job(void)
         } else {
             ok = false;
         }
+        if (!ok && in_place) {
+            s_emb_view_ok = false;   /* canvas already overwritten: re-render */
+            s_emb_key[0] = '\0';
+        }
         if (ok) {
             if (!in_place) {
                 memcpy(s_emb_tiles, scratch, (size_t)EMB_RENDER_W * EMB_RENDER_H * 2);
@@ -1439,6 +1443,15 @@ static void radar_tiles_job(void)
             ok = ok && s_radar_tiles != NULL;   /* boot-allocated */
         } else {
             ok = false;
+        }
+        /* A failed in-place render (screensaver up, decode out of memory
+         * on the 7B) has already scribbled over the displayed canvas. The
+         * view key used to stay, so the map was never rendered again and
+         * stayed black until a reboot (Discord report, 7B). Forget it so
+         * the next pass renders afresh. */
+        if (!ok && in_place) {
+            s_radar_view_ok = false;
+            s_radar_key[0] = '\0';
         }
         if (ok) {
             if (!in_place) {

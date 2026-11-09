@@ -59,3 +59,9 @@ CONFIG_LV_MEM_CUSTOM_INCLUDE="esp_heap_caps.h"
 # Room for the web panel (6 httpd sockets + 3 internal) AND the device's own
 # TLS fetches: at 10 one open panel tab starved tiles/routes/weather (#35)
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# The task watchdog report for a busy CPU0 (a software TLS handshake can
+# hold it for seconds) masks interrupts long enough for the RGB panel to
+# miss bounce-buffer EOFs: the screen jumps at boot (#35, field reports).
+# CPU0 work yields on its own; skip the idle check there.
+# CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0 is not set
