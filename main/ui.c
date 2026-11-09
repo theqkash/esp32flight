@@ -225,6 +225,7 @@ static float s_amb_scale = 1.0f;   /* upscale so the radius circle fills the hei
 static int s_amb_px, s_amb_py;     /* scale pivot: home position in map pixels */
 static char s_weather_txt[96];
 static bool s_bl_off;
+static bool s_bl_forced;   /* switched off by API/MQTT/button: stays dark until a tap or screen_on */
 
 /* Re-assert the configured brightness after a full-on: bl_on() drives the
  * panel to maximum on every board. No-op at 100%% or on on/off-only
@@ -309,6 +310,7 @@ static bool          s_radar_view_ok;
 static volatile bool s_radar_busy;
 static char          s_radar_key[48];
 static int64_t       s_radar_partial_ms;   /* nonzero: rendered with missing tiles */
+static int64_t       s_radar_done_ms;      /* last render, for the rain recompose */
 static int           s_radar_missing;
 static char          s_radar_want[48];
 static double        s_radar_bbox[4];
@@ -629,7 +631,8 @@ static void row_click_cb(lv_event_t *e)
 
 static void cycle_timer_cb(lv_timer_t *t)
 {
-    if (s_shown_count == 0 || settings_get()->follow_mode) {
+    if (s_shown_count == 0 || settings_get()->follow_mode ||
+        settings_get()->pin_nearest) {
         return;
     }
     s_selected = (s_selected + 1) % s_shown_count;
@@ -818,6 +821,14 @@ static lv_color_t class_color(flight_class_t fc)
     }
 }
 
+static void amb_show(void);
+
+static void clock_click_cb(lv_event_t *e)
+{
+    (void)e;
+    amb_show();
+}
+
 static void build_header(lv_obj_t *scr)
 {
     lv_obj_t *hdr = make_panel(scr);
@@ -835,6 +846,10 @@ static void build_header(lv_obj_t *scr)
      * headers (#33, clock painted over the city name) */
     lv_obj_align(s_clock_label, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(s_clock_label, "");
+    /* tap the clock to start the screensaver right away */
+    lv_obj_add_flag(s_clock_label, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_ext_click_area(s_clock_label, UISY(14));
+    lv_obj_add_event_cb(s_clock_label, clock_click_cb, LV_EVENT_CLICKED, NULL);
 
     s_status_label = make_label(hdr, UIFONT(&font_pl_14, &font_pl_8), COL_DIM);
     lv_obj_set_width(s_status_label, UISX(230));
@@ -1438,6 +1453,7 @@ static void radar_tiles_job(void)
             /* partial render (offline blip): keep it, retry in 20 s */
             s_radar_missing = view.missing;
             s_radar_partial_ms = view.missing > 0 ? esp_timer_get_time() / 1000 : 0;
+            s_radar_done_ms = esp_timer_get_time() / 1000;
             s_radar_tiles_dsc.header.always_zero = 0;
             s_radar_tiles_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
             s_radar_tiles_dsc.header.w = RADAR_RENDER_W;
@@ -1470,9 +1486,14 @@ static void radar_tiles_want(void)
     char key[48];
     snprintf(key, sizeof(key), "%.3f,%.3f,%d,%.2f", s_home_lat, s_home_lon,
              radius_nm, s_radar_zoom);
-    bool radar_stale = s_radar_partial_ms != 0 &&
-                       esp_timer_get_time() / 1000 - s_radar_partial_ms > 20000;
-    if (strcmp(key, s_radar_key) == 0 && !radar_stale) {
+    int64_t now_ms = esp_timer_get_time() / 1000;
+    bool radar_stale = s_radar_partial_ms != 0 && now_ms - s_radar_partial_ms > 20000;
+    /* The rain frame is baked into the rendered tiles, so an unchanged
+     * view kept the weather of its first render forever (#46). Recompose
+     * every 10 minutes while the overlay is on, like the screensaver. */
+    bool rain_stale = settings_get()->rain_overlay && s_radar_view_ok &&
+                      s_radar_done_ms != 0 && now_ms - s_radar_done_ms > 10 * 60 * 1000;
+    if (strcmp(key, s_radar_key) == 0 && !radar_stale && !rain_stale) {
         return;
     }
     double rkm = radius_nm * 1.852 * s_radar_zoom;
@@ -2301,7 +2322,22 @@ static void amb_tiles_job(void)
      * on same-area re-renders (tilemap TM_NO_FLOOD) means a visible retry
      * morphs into the fresh frame instead of flashing dark. */
     uint16_t *scratch = s_amb_tiles;
-    if (lvgl_port_lock(1000)) {
+    /* Refreshing a view already on screen (10-minute rain recompose,
+     * partial retry): compose off screen when PSRAM has room to spare.
+     * Rewriting the displayed canvas let every LVGL redraw of the range
+     * ring's box show the half-built frame, a blank band across the map
+     * several times an hour (#48). The margin keeps tile decoding (which
+     * also needs big blocks, and the 7B is tight) from starving; without
+     * it the old in-place path remains. */
+    const size_t amb_bytes = (size_t)AMB_RENDER_W * AMB_RENDER_H * 2;
+    uint16_t *offscreen = NULL;
+    if (s_amb_view_ok &&
+        heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) > amb_bytes + 1024 * 1024) {
+        offscreen = heap_caps_malloc(amb_bytes, MALLOC_CAP_SPIRAM);
+    }
+    if (offscreen != NULL) {
+        scratch = offscreen;
+    } else if (lvgl_port_lock(1000)) {
         s_amb_view_ok = false;   /* canvas is being rewritten */
         lvgl_port_unlock();
     }
@@ -2338,6 +2374,12 @@ static void amb_tiles_job(void)
 
         if (lvgl_port_lock(-1)) {
         ok = ok && s_amb_tiles != NULL;   /* boot-allocated */
+        if (ok && offscreen != NULL && view.missing > s_amb_missing) {
+            ok = false;   /* keep the more complete frame already shown */
+        }
+        if (ok && offscreen != NULL) {
+            memcpy(s_amb_tiles, offscreen, amb_bytes);
+        }
         if (ok) {
             s_amb_view = view;
             s_amb_view_ok = true;
@@ -2362,8 +2404,10 @@ static void amb_tiles_job(void)
         }
         lvgl_port_unlock();
     }
-    ESP_LOGI("ui", "ambient tiles: %s (scale %.2f)", ok ? "ok" : "FAILED",
-             (double)scale);
+    bool was_off = offscreen != NULL;
+    free(offscreen);
+    ESP_LOGI("ui", "ambient tiles: %s (scale %.2f%s)", ok ? "ok" : "FAILED",
+             (double)scale, was_off ? ", off screen" : "");
     s_amb_busy = false;
 }
 
@@ -2674,6 +2718,7 @@ static void amb_click_cb(lv_event_t *e)
         waveshare_rgb_lcd_bl_on();
         ui_apply_brightness();
         s_bl_off = false;
+        s_bl_forced = false;
         return;     /* first tap only wakes the screen */
     }
     /* tap on (near) a plane selects it and shows its bubble;
@@ -2823,15 +2868,52 @@ static void amb_show(void)
     render_ambient();
 }
 
+void ui_selected_hex(char *out, size_t n)
+{
+    strlcpy(out, s_selected_hex, n);
+}
+
+bool ui_screen_dark(void)
+{
+#ifdef APKFLIGHT
+    extern volatile bool g_app_background;
+    return s_bl_off || g_app_background;
+#else
+    return s_bl_off;
+#endif
+}
+
 /* idle watcher: screensaver + night backlight */
 static void idle_timer_cb(lv_timer_t *t)
 {
     const settings_t *cfg = settings_get();
     uint32_t idle_ms = lv_disp_get_inactive_time(NULL);
 
-    if (cfg->ambient_idle_min > 0 && s_amb == NULL &&
+    /* #43: optional time window for the screensaver. Outside it the
+     * radar stays up; when the window closes a running screensaver ends
+     * too (unless the night schedule has the panel dark). No clock yet
+     * means no window check. */
+    bool amb_window = true;
+    /* Track mode: the point is to watch that one flight, so no screensaver
+     * (a running one closes) while it is on. */
+    if (cfg->track_on && cfg->track_id[0]) {
+        amb_window = false;
+    } else if (cfg->amb_sched) {
+        time_t now = time(NULL);
+        if (now > 1600000000) {
+            time_t l = now + (tz_home_known() ? tz_home_offset() : 0);
+            struct tm tm;
+            gmtime_r(&l, &tm);
+            int m = tm.tm_hour * 60 + tm.tm_min;
+            int a = cfg->amb_from_min, b = cfg->amb_to_min;
+            amb_window = a == b || (a < b ? (m >= a && m < b) : (m >= a || m < b));
+        }
+    }
+    if (cfg->ambient_idle_min > 0 && s_amb == NULL && amb_window &&
         idle_ms > (uint32_t)cfg->ambient_idle_min * 60000U) {
         amb_show();
+    } else if (!amb_window && s_amb != NULL && !s_bl_off) {
+        amb_close();
     }
 
     if (cfg->night_enabled) {
@@ -2856,7 +2938,7 @@ static void idle_timer_cb(lv_timer_t *t)
                 idle_ms > (uint32_t)(cfg->ambient_idle_min + 5) * 60000U) {
                 waveshare_rgb_lcd_bl_off();
                 s_bl_off = true;
-            } else if (!night && s_bl_off) {
+            } else if (!night && s_bl_off && !s_bl_forced) {
                 /* Morning restore must NOT require the screensaver to still
                  * be up: a tap in the dark can close it invisibly, and the
                  * old gate then kept the panel black past sunrise (7B
@@ -2871,10 +2953,11 @@ static void idle_timer_cb(lv_timer_t *t)
     /* Safety net alongside the screensaver's tap-to-wake: any recent input
      * while dark relights the panel (this timer runs every 10 s), and so
      * does disabling night mode from the web panel while dark. */
-    if (s_bl_off && (idle_ms < 11000U || !cfg->night_enabled)) {
+    if (s_bl_off && (idle_ms < 11000U || (!cfg->night_enabled && !s_bl_forced))) {
         waveshare_rgb_lcd_bl_on();
         ui_apply_brightness();
         s_bl_off = false;
+        s_bl_forced = false;
     }
 }
 
@@ -3035,7 +3118,41 @@ static void retro_map_update(void)
      * classes collapse into 5 quantization steps. Tuned offline against
      * the real tiles. Classes: 0 land, 1 water, 2 road, 3 other. */
     const bool unlift = settings_get()->map_light;
-    for (int y = 0; y < RADAR_H; y++) {
+    /* The classifier is tuned for CARTO's grayscale dark tiles. Since
+     * 0.4.6 the default is OpenStreetMap (colour, darkened on device) or
+     * any custom server, where land/water bands mean nothing and the
+     * underlay came out empty. There the scope gets a phosphor rendering
+     * of the tile's own brightness instead: same map, green CRT look,
+     * clipped to the scope circle, dim enough for blips to stay on top. */
+    const settings_t *rcfg = settings_get();
+    const bool phosphor = rcfg->tile_url[0] != '\0' || rcfg->carto_key[0] == '\0';
+    const int r2 = RADAR_R * RADAR_R;
+    for (int y = 0; phosphor && y < RADAR_H; y++) {
+        uint16_t *dst = &s_retro_map_buf[y * RADAR_W];
+        float sy = hy + (y - RADAR_CY) * k;
+        int dy = y - RADAR_CY;
+        for (int x = 0; x < RADAR_W; x++) {
+            int dx = x - RADAR_CX;
+            uint16_t out = 0;
+            float sx = hx + (x - RADAR_CX) * k;
+            int isx = (int)(RADAR_RENDER_W / 2 + (sx - RADAR_W / 2) / RADAR_K);
+            int isy = (int)(RADAR_RENDER_H / 2 + (sy - RADAR_H / 2) / RADAR_K);
+            if (dx * dx + dy * dy <= r2 &&
+                isx >= 0 && isx < RADAR_RENDER_W && isy >= 0 && isy < RADAR_RENDER_H) {
+                uint16_t c = s_radar_tiles[isy * RADAR_RENDER_W + isx];
+                /* luma 0..63 from RGB565 */
+                int l = (((c >> 11) & 31) * 2 * 77 + ((c >> 5) & 63) * 150 +
+                         (c & 31) * 2 * 29) >> 8;
+                int g = l * 5 / 8 + 2;          /* phosphor green, ~60 % */
+                if (g > 40) {
+                    g = 40;
+                }
+                out = (uint16_t)(((g / 6) << 11) | (g << 5) | (g / 6));
+            }
+            dst[x] = out;
+        }
+    }
+    for (int y = 0; !phosphor && y < RADAR_H; y++) {
         uint16_t *dst = &s_retro_map_buf[y * RADAR_W];
         float sy = hy + (y - RADAR_CY) * k;
         for (int x = 0; x < RADAR_W; x++) {
@@ -3420,9 +3537,10 @@ static void build_detail(lv_obj_t *scr)
     lv_obj_clear_flag(s_detail_content, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(s_detail_content, LV_OBJ_FLAG_HIDDEN);
 
-/* The app build and the Tab5 (1280x720) get the big type tier; the big
- * fonts are only compiled for those targets. */
-#if defined(APKFLIGHT) || defined(CONFIG_IDF_TARGET_ESP32P4)
+/* The app build, the P4 boards (1280x720/1280x800) and the 7B (1024x600,
+ * #50) get the big type tier; the big fonts are only compiled for those. */
+#if defined(APKFLIGHT) || defined(CONFIG_IDF_TARGET_ESP32P4) || \
+    defined(CONFIG_CANFLIGHT_BOARD_WAVESHARE_7B)
     s_big = DTL_VEXT >= 160;
     s_f_code = s_big ? UIFONT(&lv_font_montserrat_44, &lv_font_montserrat_28) : UIFONT(&lv_font_montserrat_32, &lv_font_montserrat_20);
     s_f_val = s_big ? UIFONT(&lv_font_montserrat_28, &lv_font_montserrat_16) : UIFONT(&lv_font_montserrat_20, &lv_font_montserrat_12);
@@ -3868,8 +3986,8 @@ static void render_detail(void)
     static uint8_t s_det_cfg = 0xFF;
     static bool s_det_had_logo;
     const settings_t *dcfg = settings_get();
-    uint8_t cfgsig = (uint8_t)((dcfg->theme << 2) |
-                               (dcfg->metric_units << 1) | dcfg->lang);
+    uint8_t cfgsig = (uint8_t)((dcfg->theme << 4) |
+                               (dcfg->metric_units << 2) | (dcfg->lang & 3));
     int minute = (int)(time(NULL) / 60);
     if (minute == s_det_minute && cfgsig == s_det_cfg && s_det_had_logo &&
         memcmp(&s_shown[s_selected], &s_det_snap, sizeof(s_det_snap)) == 0) {
@@ -4085,7 +4203,10 @@ static void render_detail(void)
 
     /* spotter line: where to look + flyover prediction */
     char look[128] = "";
-    if (ac->has_pos && !ac->on_ground && ac->dist_nm >= 0 && s_home_ok) {
+    /* below ~1 degree the aircraft is behind the horizon (a tracked flight
+     * hundreds of km away): no "look there" hint */
+    if (ac->has_pos && !ac->on_ground && ac->dist_nm >= 0 && s_home_ok &&
+        geo_elevation_deg(ac->dist_nm * 1.852, ac->alt_baro_ft) >= 1.0) {
         double t_s, cpa_km;
         bool cpa_ok = geo_cpa(s_home_lat, s_home_lon, ac->lat, ac->lon,
                               ac->track_deg, ac->gs_kts, &t_s, &cpa_km) &&
@@ -4171,6 +4292,13 @@ void ui_update(const aircraft_list_t *list)
         }
     }
     if (s_selected < 0 && s_shown_count > 0) {
+        s_selected = 0;
+        strlcpy(s_selected_hex, s_shown[0].ac.hex, sizeof(s_selected_hex));
+    }
+    /* #44: the detail view sticks to the nearest aircraft (the list is
+     * sorted by distance). A tap on another one keeps it for 30 s. */
+    if (settings_get()->pin_nearest && s_shown_count > 0 && s_selected != 0 &&
+        lv_disp_get_inactive_time(NULL) > 30000U) {
         s_selected = 0;
         strlcpy(s_selected_hex, s_shown[0].ac.hex, sizeof(s_selected_hex));
     }
@@ -4389,6 +4517,13 @@ void ui_toast(const char *text)
  * lock. Returns false for names it does not own. */
 bool ui_input_action(const char *a)
 {
+    /* A button press or API call is user activity: without this the idle
+     * watcher reopened the screensaver seconds after a "wake". The
+     * actions that darken the screen on purpose must not count. */
+    if (strcmp(a, "screensaver") != 0 && strcmp(a, "screen_off") != 0 &&
+        !(strcmp(a, "screen_toggle") == 0 && !s_bl_off)) {
+        lv_disp_trig_activity(NULL);
+    }
     if (strcmp(a, "next_view") == 0 || strcmp(a, "prev_view") == 0) {
         int v = (s_view_mode + (a[0] == 'n' ? 1 : 4)) % 5;
         apply_view(v);
@@ -4422,7 +4557,31 @@ bool ui_input_action(const char *a)
         radar_tiles_want();
         return true;
     }
+    /* Screen control for HTTP (/api/input), MQTT and physical buttons */
+    if (strcmp(a, "screensaver") == 0) {
+        if (s_amb == NULL) {
+            amb_show();
+        }
+        return true;
+    }
+    if (strcmp(a, "screen_off") == 0 ||
+        (strcmp(a, "screen_toggle") == 0 && !s_bl_off)) {
+        waveshare_rgb_lcd_bl_off();
+        s_bl_off = true;
+        s_bl_forced = true;
+        return true;
+    }
+    if (strcmp(a, "screen_on") == 0 || strcmp(a, "screen_toggle") == 0) {
+        if (s_bl_off) {
+            waveshare_rgb_lcd_bl_on();
+            ui_apply_brightness();
+            s_bl_off = false;
+        }
+        s_bl_forced = false;
+        return true;
+    }
     if (strcmp(a, "wake") == 0) {
+        s_bl_forced = false;
         if (s_bl_off) {
             waveshare_rgb_lcd_bl_on();
             ui_apply_brightness();

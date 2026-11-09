@@ -416,7 +416,11 @@ static lv_disp_t *display_init(esp_lcd_panel_handle_t panel_handle)
 
     ESP_LOGD(TAG, "Register display driver to LVGL");
     lv_disp_drv_init(&disp_drv); // Initialize the display driver
-#if CONFIG_IDF_TARGET_ESP32P4
+#if CONFIG_CANFLIGHT_BOARD_ELECROW_P4_10
+    /* native landscape panel: no software rotation */
+    disp_drv.hor_res = LVGL_PORT_H_RES;
+    disp_drv.ver_res = LVGL_PORT_V_RES;
+#elif CONFIG_IDF_TARGET_ESP32P4
     /* Tab5: the DSI panel is native portrait 720x1280; LVGL renders the
      * landscape UI and software-rotates into panel space */
     disp_drv.hor_res = LVGL_PORT_V_RES;

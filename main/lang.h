@@ -81,6 +81,8 @@ typedef struct {
     /* photo */
     const char *loading_photo, *no_photo;
     /* weather (WMO code description) */
+    const char *pin_near_lbl, *amb_sched_lbl, *lmerge_lbl;
+    const char *track_fmt, *track_wait_fmt, *track_lbl, *track_on_lbl;
     const char *wx_clear, *wx_partly, *wx_overcast, *wx_fog, *wx_drizzle,
                *wx_rain, *wx_snow, *wx_showers, *wx_thunder;
 } lang_t;
@@ -93,4 +95,4 @@ const char *lang_weather_desc(int code);
 /* 8-sector compass label ("NW") for a bearing in degrees. */
 const char *lang_compass(int deg);
 
-const char *lang_metar_wx(const char *code, int lang_pl);
+const char *lang_metar_wx(const char *code, int lang);  /* 0 en, 1 pl, 2 hu */

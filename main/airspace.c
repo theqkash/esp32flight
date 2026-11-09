@@ -16,7 +16,9 @@ static const char *TAG = "airspace";
 
 #define FETCH_DIST_M   50000   /* openAIP caps dist at 50 km */
 #define RETRY_US       (30LL * 60 * 1000 * 1000)
-#define BUF_SIZE       (400 * 1024)
+/* With the server-side type filter below a 50 km answer is ~40 KB
+ * (was ~340 KB unfiltered, which cJSON could not parse in 7B PSRAM). */
+#define BUF_SIZE       (128 * 1024)
 
 static airspace_t *s_asp;     /* PSRAM, MAX_AIRSPACES entries */
 static int s_count;
@@ -47,11 +49,19 @@ static bool type_wanted(int type)
     return airspace_type_str(type)[0] != '\0';
 }
 
-static void parse_airspaces(const char *json, double home_lat, double home_lon)
+static bool parse_airspaces(const char *json, double home_lat, double home_lon)
 {
-    s_count = 0;   /* renderer reads from another task; hide during rewrite */
+    /* Parse first: a failed parse (out of memory, truncated answer) used
+     * to wipe the outlines on screen and log nothing, which looked
+     * exactly like a bad API key (#35). Now the old set stays. */
     cJSON *root = cJSON_Parse(json);
     const cJSON *items = cJSON_GetObjectItem(root, "items");
+    if (root == NULL || !cJSON_IsArray(items)) {
+        ESP_LOGW(TAG, "airspace answer not parsed (%s)", root ? "no items" : "JSON/memory");
+        cJSON_Delete(root);
+        return false;
+    }
+    s_count = 0;   /* renderer reads from another task; hide during rewrite */
     int n = 0;
     for (const cJSON *it = items != NULL ? items->child : NULL;
          it != NULL && n < MAX_AIRSPACES; it = it->next) {
@@ -113,6 +123,7 @@ static void parse_airspaces(const char *json, double home_lat, double home_lon)
     (void)home_lat;
     (void)home_lon;
     ESP_LOGI(TAG, "%d airspace outlines cached", n);
+    return true;
 }
 
 void airspace_poll(double home_lat, double home_lon)
@@ -149,14 +160,15 @@ void airspace_poll(double home_lat, double home_lon)
     if (buf == NULL) {
         return;
     }
-    char url[200];
+    char url[280];
     snprintf(url, sizeof(url),
-             "https://api.core.openaip.net/api/airspaces?pos=%.4f,%.4f&dist=%d&limit=60",
+             "https://api.core.openaip.net/api/airspaces?pos=%.4f,%.4f&dist=%d&limit=60"
+             /* only the types airspace_type_str() draws */
+             "&type=1&type=2&type=3&type=4&type=7&type=13&type=21&type=26&type=27",
              home_lat, home_lon, FETCH_DIST_M);
     if (http_get_to_buffer_hdr(url, buf, BUF_SIZE, NULL,
                                "x-openaip-api-key", cfg->openaip_key) == ESP_OK) {
-        parse_airspaces(buf, home_lat, home_lon);
-        s_ok = true;
+        s_ok = parse_airspaces(buf, home_lat, home_lon);
     } else {
         s_ok = false;
         ESP_LOGW(TAG, "fetch failed (rate limit, bad key or offline), retry in 30 min");

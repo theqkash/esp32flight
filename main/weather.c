@@ -11,11 +11,13 @@ static const char *TAG = "weather";
 esp_err_t weather_fetch(double lat, double lon, weather_t *out)
 {
     out->valid = false;
+    out->has_offset = false;
 
-    char url[192];
+    char url[224];
     snprintf(url, sizeof(url),
              "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
-             "&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh",
+             "&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh"
+             "&timezone=auto",
              lat, lon);
 
     char *buf = malloc(4096);
@@ -32,6 +34,11 @@ esp_err_t weather_fetch(double lat, double lon, weather_t *out)
     free(buf);
     if (root == NULL) {
         return ESP_ERR_INVALID_RESPONSE;
+    }
+    const cJSON *jo = cJSON_GetObjectItem(root, "utc_offset_seconds");
+    if (cJSON_IsNumber(jo)) {
+        out->utc_offset_s = (int)jo->valuedouble;
+        out->has_offset = true;
     }
     const cJSON *cur = cJSON_GetObjectItem(root, "current");
     const cJSON *jt = cur ? cJSON_GetObjectItem(cur, "temperature_2m") : NULL;

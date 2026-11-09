@@ -12,5 +12,12 @@ CONFIG_IDF_EXPERIMENTAL_FEATURES=y
 CONFIG_ESPTOOLPY_FLASHFREQ_120M=y
 CONFIG_SPIRAM_SPEED_120M=y
 CONFIG_GDMA_ISR_IRAM_SAFE=y
-CONFIG_LCD_RGB_RESTART_IN_VSYNC=y
+# RESTART_IN_VSYNC=y loses bounce-buffer sync after a missed EOF interrupt
+# (task-watchdog report, Wi-Fi start) and never recovers: the picture
+# shifts up by one bounce buffer with lines until reboot. ESP-IDF bug
+# espressif/esp-idf#19070, fixed on master/5.4 but not in a 5.5 release
+# yet; with =n the driver resyncs within a frame (#35, quinkq/fuleo).
+# CONFIG_LCD_RGB_RESTART_IN_VSYNC is not set
 CONFIG_EXAMPLE_LCD_RGB_BOUNCE_BUFFER_HEIGHT=15
+# Big type tier on the detail view (#50): needs the 44 px Montserrat
+CONFIG_LV_FONT_MONTSERRAT_44=y

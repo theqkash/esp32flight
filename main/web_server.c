@@ -21,6 +21,7 @@
 #include "obslog.h"
 #include "alertlog.h"
 #include "settings.h"
+#include "faflight.h"
 #include "input_ctl.h"
 #include "airports.h"
 #include "ui.h"
@@ -75,61 +76,107 @@ static const char INDEX_HTML[] =
 "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>"
 "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
 "<style>"
-"body{background:#0c1510;color:#e7f2ea;font-family:system-ui,sans-serif;margin:0 auto;padding:18px;max-width:1180px}"
-"h1{color:#5dd39e;font-size:24px;margin:0 0 4px;letter-spacing:.3px}"
-"h1 .mark{display:inline-block;transform:rotate(-45deg);margin-right:2px}"
-".dim{color:#86a695;font-size:14px}"
-"table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}"
-".tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}"
-".tw table{min-width:640px}"
-"th{color:#86a695;text-align:left;padding:6px 8px;border-bottom:1px solid #23402f}"
-"th.r,td.r{text-align:right}td.r{font-variant-numeric:tabular-nums;white-space:nowrap}"
-"td{padding:7px 8px;border-bottom:1px solid #14231b}"
-"tr.em td{background:#4a1010}"
-".bar{background:#1a2f24;height:6px;border-radius:3px;min-width:70px}"
-".bar i{display:block;background:#5dd39e;height:6px;border-radius:3px}"
-".cards{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}"
-".card{background:#14231b;border:1px solid #23402f;border-radius:12px;padding:10px 14px;font-size:13px;color:#86a695;box-shadow:0 2px 8px rgba(0,0,0,.25)}"
-".card b{display:block;color:#e7f2ea;font-size:17px}"
-"#map{height:clamp(380px,62vh,700px);border-radius:12px;margin-top:14px}.darktiles{filter:invert(1) hue-rotate(180deg) brightness(.75) contrast(1.1) saturate(.4);}"
+":root{--bg:#0b1110;--bg2:#0f1816;--card:#121d1a;--card2:#16231f;--line:#1f302b;--line2:#2a4038;"
+"--text:#e8f1ed;--dim:#8ea69b;--dim2:#6a8278;--acc:#4fd69c;--acc2:#2fb57d;--accink:#04140c;"
+"--warn:#ffcf66;--bad:#ff6b6b;--shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.18);color-scheme:dark}"
+"@media (prefers-color-scheme:light){:root{--bg:#f4f7f6;--bg2:#eef3f1;--card:#ffffff;--card2:#f6faf8;--line:#e1e9e5;--line2:#cfdcd6;"
+"--text:#13201b;--dim:#5b7168;--dim2:#7b8f87;--acc:#13a46b;--acc2:#0e8a59;--accink:#ffffff;--warn:#b7791f;--bad:#c53030;"
+"--shadow:0 1px 2px rgba(16,40,30,.06),0 8px 24px rgba(16,40,30,.06);color-scheme:light}}"
+"*{box-sizing:border-box}"
+"body{background:radial-gradient(1200px 600px at 10% -10%,var(--bg2),var(--bg));background-attachment:fixed;color:var(--text);"
+"font:15px/1.45 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Inter,sans-serif;margin:0;-webkit-font-smoothing:antialiased}"
+".top{position:sticky;top:0;z-index:1000;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);"
+"-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}"
+".topin{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}"
+".brand{display:flex;align-items:center;gap:10px;min-width:0}"
+"h1{font-size:19px;margin:0;font-weight:750;letter-spacing:-.2px;color:var(--text)}"
+"h1 .mark{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));"
+"color:var(--accink);font-size:16px;margin-right:2px;vertical-align:-6px}"
+"h1 .mark i{display:inline-block;transform:rotate(-45deg);font-style:normal}"
+"#hdr{font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw}"
+".wrap{max-width:1240px;margin:0 auto;padding:18px 20px 90px}"
+".dim{color:var(--dim);font-size:14px}"
+"a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}"
+".tabs{display:flex;gap:4px;margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}"
+".tab{background:transparent;color:var(--dim);font-weight:650;border-radius:9px;padding:7px 14px;border:0;box-shadow:none}"
+".tab:hover{color:var(--text);background:var(--card2);filter:none}"
+".tab.on{background:var(--acc);color:var(--accink)}"
+".tabpane{display:none}.tabpane.on{display:block;animation:fade .18s ease}"
+"@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}"
+"button{background:var(--acc);color:var(--accink);border:0;border-radius:10px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer;"
+"transition:filter .15s,transform .05s}"
+"button:hover:not(:disabled){filter:brightness(1.08)}button:active:not(:disabled){transform:translateY(1px)}"
+"button:disabled{opacity:.4;cursor:default}"
+"button.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line2)}"
+".cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}"
+".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:12px;color:var(--dim);"
+"box-shadow:var(--shadow);font-weight:600;line-height:1.5}"
+".card b{display:block;color:var(--text);font-size:20px;letter-spacing:-.2px;text-transform:none;font-weight:700;margin-top:2px;"
+"font-variant-numeric:tabular-nums}"
+"#map{height:clamp(380px,60vh,720px);border-radius:16px;margin-top:14px;border:1px solid var(--line);box-shadow:var(--shadow)}"
+".darktiles{filter:invert(1) hue-rotate(180deg) brightness(.75) contrast(1.1) saturate(.4)}"
+"@media (prefers-color-scheme:light){.darktiles{filter:none}}"
 ".plane{font-size:20px;line-height:20px;text-shadow:0 0 3px #000}"
-"#ota{margin-top:22px;padding-top:12px;border-top:1px solid #23402f}"
-"button{background:#5dd39e;color:#06130c;border:0;border-radius:10px;padding:8px 16px;font-weight:700;cursor:pointer}"
-"button:hover:not(:disabled){filter:brightness(1.12)}"
-"button:disabled{opacity:.35}"
-"a{color:#5dd39e}"
-".sect{margin-top:22px;padding-top:12px;border-top:1px solid #23402f}"
-".sect h3{margin:0 0 10px;font-size:16px;color:#e7f2ea}"
-".grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}"
-".grid2 label{font-size:12px;color:#86a695;display:block;margin-bottom:2px}"
-"input,select{width:100%;box-sizing:border-box;background:#14231b;border:1px solid #23402f;color:#e7f2ea;border-radius:8px;padding:7px}"
-"input:focus,select:focus{outline:none;border-color:#5dd39e}"
-"tbody tr:hover td{background:#14231b}"
-"#rows tr{cursor:pointer}"
-"#rows tr.sel td{background:#1f3d2b}"
-"#hq{width:200px;display:inline-block}"
-"tr.gold td b{color:#ffd166}"
-".sech{grid-column:1/-1;color:#5dd39e;font-size:12px;font-weight:700;margin-top:10px;text-transform:uppercase;letter-spacing:.6px}"
-".help{font-size:12px;color:#6d8a7a;margin-top:3px;line-height:1.4}"
-".tabs{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}"
-".tab{background:#14231b;color:#86a695;font-weight:600;border-radius:999px;border:1px solid #23402f}"
-".tab.on{background:#5dd39e;color:#06130c;border-color:#5dd39e}"
-".tabpane{display:none}.tabpane.on{display:block}"
-".cfgcard{background:#101d16;border:1px solid #21382b;border-radius:12px;padding:14px 16px;margin-top:14px}"
-".cfgcard h4{margin:0 0 10px;color:#5dd39e;font-size:12px;text-transform:uppercase;letter-spacing:.7px}"
-".api dt{color:#5dd39e;font-family:ui-monospace,SFMono-Regular,monospace;font-size:14px;margin-top:16px}"
-".api dd{margin:4px 0 0;color:#86a695;font-size:13px;line-height:1.5}"
-"code{background:#14231b;border-radius:6px;padding:1px 5px;font-size:12px;color:#cfe4d6}"
-"pre{background:#14231b;border-radius:8px;padding:8px 10px;overflow-x:auto;font-size:12px;color:#cfe4d6}"
+".tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin-top:14px;background:var(--card);border:1px solid var(--line);"
+"border-radius:16px;box-shadow:var(--shadow)}"
+".tw table{min-width:640px}"
+"table{width:100%;border-collapse:collapse;font-size:14px}"
+"th{color:var(--dim);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;"
+"letter-spacing:.6px;font-weight:650;position:sticky;top:0;background:var(--card)}"
+"th.r,td.r{text-align:right}td.r{font-variant-numeric:tabular-nums;white-space:nowrap}"
+"td{padding:9px 12px;border-bottom:1px solid var(--line)}"
+"tbody tr:last-child td{border-bottom:0}"
+"tbody tr:hover td{background:var(--card2)}"
+"#rows tr{cursor:pointer}#rows tr.sel td{background:color-mix(in srgb,var(--acc) 16%,var(--card))}"
+"tr.em td{background:color-mix(in srgb,var(--bad) 28%,var(--card))}"
+"tr.gold td b{color:var(--warn)}"
+".bar{background:var(--line);height:6px;border-radius:3px;min-width:70px}"
+".bar i{display:block;background:var(--acc);height:6px;border-radius:3px}"
+".sect{margin-top:22px}"
+".sect h3{margin:0 0 12px;font-size:17px;font-weight:700}"
+".cfgcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-top:14px;box-shadow:var(--shadow)}"
+".cfgcard h4{margin:0 0 12px;color:var(--text);font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}"
+".cfgcard h4:before{content:'';width:8px;height:8px;border-radius:3px;background:var(--acc)}"
+".grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px 16px}"
+".grid2 label{font-size:12px;color:var(--dim);display:block;margin-bottom:5px;font-weight:600}"
+"input,select{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--text);border-radius:10px;padding:9px 11px;font:inherit;"
+"font-size:14px;transition:border-color .15s,box-shadow .15s}"
+"input[type=checkbox]{width:auto;accent-color:var(--acc)}"
+"input[type=file]{padding:7px}"
+"input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}"
+".help{font-size:12px;color:var(--dim2);margin-top:5px;line-height:1.45}"
+".sech{grid-column:1/-1;color:var(--acc);font-size:12px;font-weight:700;margin-top:10px;text-transform:uppercase;letter-spacing:.6px}"
+"#hq{width:240px;display:inline-block}"
+"#ota{margin-top:4px}"
+".savebar{position:sticky;bottom:0;margin-top:18px;padding:12px 16px;background:color-mix(in srgb,var(--card) 92%,transparent);"
+"backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}"
+".trk{display:flex;gap:8px;align-items:center;flex-wrap:wrap}"
+".trk input{max-width:220px;text-transform:uppercase}"
+".pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:650;background:var(--card2);border:1px solid var(--line2);color:var(--dim)}"
+".pill.on{background:color-mix(in srgb,var(--acc) 18%,var(--card));color:var(--acc);border-color:color-mix(in srgb,var(--acc) 45%,var(--line))}"
+".api dt{color:var(--acc);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;margin-top:18px;font-weight:600}"
+".api dd{margin:5px 0 0;color:var(--dim);font-size:13px;line-height:1.55}"
+"code{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px;color:var(--text)}"
+"pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;overflow-x:auto;font-size:12px;color:var(--text)}"
+".leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card);color:var(--text)}"
+"@media (max-width:720px){.topin{padding:10px 14px}.wrap{padding:14px 14px 90px}.tabs{margin-left:0;width:100%}.tab{flex:1;padding:7px 6px}#hdr{max-width:100%}}"
 "</style></head><body>"
-"<h1><span class=\'mark\'>\xe2\x9c\x88</span>esp32flight</h1><div class='dim' id='hdr'>loading...</div>"
+"<div class='top'><div class='topin'><div class='brand'><h1><span class='mark'><i>\xe2\x9c\x88</i></span> esp32flight</h1>"
+"<div id='hdr'>loading...</div></div>"
 "<div class='tabs'>"
 "<button class='tab on' id='tb_live' onclick=\"showTab('live')\">Live</button>"
 "<button class='tab' id='tb_hist' onclick=\"showTab('hist')\">History</button>"
 "<button class='tab' id='tb_set' onclick=\"showTab('set')\">Settings</button>"
 "<button class='tab' id='tb_api' onclick=\"showTab('api')\">API</button>"
-"</div>"
+"</div></div></div><div class='wrap'>"
 "<div id='t_live' class='tabpane on'>"
+"<div class='cfgcard' style='margin:0 0 14px'><h4>Track a flight</h4><div class='trk'>"
+"<input id='trk_id' placeholder='callsign, reg or hex' maxlength='11'>"
+"<button type='button' onclick='trkSet(true)'>Track</button>"
+"<button type='button' class='ghost' onclick='trkSel()'>Use selected</button>"
+"<button type='button' class='ghost' onclick='trkSet(false)'>Stop</button>"
+"<span id='trk_st' class='pill'>off</span></div>"
+"<div class='help'>Follow one flight anywhere in the world, e.g. family on board. While it is in the air the screen shows only that flight; Stop returns to your sky. Applies at once, no restart.</div></div>"
 "<div class='cards' id='cards'></div>"
 "<div id='map'></div>"
 "<div class='tw'><table><thead><tr><th>Flight</th><th>Airline</th><th>Aircraft</th><th>Route</th>"
@@ -213,22 +260,29 @@ static const char INDEX_HTML[] =
 "</div></div>"
 "<div class='cfgcard'><h4>Display</h4><div class='grid2'>"
 "<div><label>Brighter map tiles</label><select id='c_map_light'><option value='0'>off</option><option value='1'>on</option></select>"
+"<div class='help'>Lifts the dark map style for readability. New tiles only; the device reloads its map after a restart.</div></div>"
 "<div><label>Map on retro radar</label><select id='c_retro_map'><option value='0'>off</option><option value='1'>on</option></select>"
+"<div class='help'>Your map under the sweep: coastlines on CARTO tiles, a phosphor rendering on OpenStreetMap or a custom server.</div></div>"
 "<div><label>12-hour clock (AM/PM)</label><select id='c_clock_12h'><option value='0'>24 h</option><option value='1'>12 h AM/PM</option></select></div>"
 "<div><label>Brightness control</label><select id='c_brightness_ctl'><option value='0'>off (default)</option><option value='1'>on</option></select>"
 "<div class='help'>Master switch for backlight dimming. Off keeps stock full-brightness behavior on every board.</div></div>"
 "<div><label>Brightness (5-100)</label><input id='c_brightness' type='number' min='5' max='100'>"
 "<div class='help'>Needs brightness control on and a dimmable backlight; CH422G boards (Waveshare 800x480) are on/off.</div></div>"
-"<div class='help'>Lifts the dark map style for readability. New tiles only; the device reloads its map after a restart.</div></div>"
 "<div><label>Theme</label><select id='c_theme'><option value='0'>Dark</option><option value='1'>Light</option><option value='2'>Black</option><option value='3'>Nord</option><option value='4'>Solarized</option><option value='5'>Purple</option><option value='6'>Forest</option></select></div>"
-"<div><label>Language</label><select id='c_lang'><option value='0'>English</option><option value='1'>Polski</option></select></div>"
+"<div><label>Language</label><select id='c_lang'><option value='0'>English</option><option value='1'>Polski</option><option value='2'>Magyar</option></select></div>"
 "<div><label>Units</label><select id='c_metric_units'><option value='0'>aviation (ft, kt)</option><option value='1'>metric (m, km/h)</option></select></div>"
 "<div><label>Temperature</label><select id='c_temp_f'><option value='0'>\u00b0C</option><option value='1'>\u00b0F</option></select></div>"
 "<div><label>METAR style</label><select id='c_metar_decoded'><option value='0'>raw</option><option value='1'>decoded</option></select></div>"
 "<div><label>Auto-cycle flights</label><select id='c_follow_mode'><option value='0'>on (default)</option><option value='1'>off, follow selection</option></select>"
 "<div class='help'>Off keeps the selected flight on screen until you pick another one.</div></div>"
+"<div><label>Always show the nearest aircraft</label><select id='c_pin_nearest'><option value='0'>off</option><option value='1'>on</option></select>"
+"<div class='help'>The detail view follows whichever aircraft is closest. A tap on another one shows it for 30 s.</div></div>"
 "<div><label>Map screensaver after (minutes, 0 = off)</label><input id='c_ambient_idle_min' type='number'>"
 "<div class='help'>Full-screen map of your area after this many idle minutes. Tap to return.</div></div>"
+"<div><label>Screensaver schedule</label><select id='c_amb_sched'><option value='0'>any time (default)</option><option value='1'>only between the hours below</option></select>"
+"<div class='help'>Outside these hours the radar stays up, and the screensaver closes when the window ends.</div></div>"
+"<div><label>Screensaver from</label><input id='c_amb_from' type='time'></div>"
+"<div><label>Screensaver until</label><input id='c_amb_to' type='time'></div>"
 "<div><label>Night mode</label><select id='c_night_enabled'><option value='0'>off</option><option value='1'>on</option></select>"
 "<div class='help'>Backlight turns off during the quiet hours below; first tap wakes the screen.</div></div>"
 "<div><label>Night hours</label><select id='c_night_auto'><option value='0'>fixed hours below</option><option value='1'>auto: sunset to sunrise</option></select></div>"
@@ -239,7 +293,9 @@ static const char INDEX_HTML[] =
 "<div><label>MQTT broker (Home Assistant)</label><input id='c_mqtt_uri' placeholder='mqtt://user:pass@192.168.1.10:1883'>"
 "<div class='help'>Sensors appear automatically in Home Assistant via MQTT discovery.</div></div>"
 "<div><label>FlightAware AeroAPI key</label><input id='c_fa_key'>"
-"<div class='help'>Optional. Adds flight numbers (FR4238) and live routes. Free Personal key: flightaware.com/aeroapi.</div></div>"
+"<div class='help'>Optional and billed per call by FlightAware. Adds exact flight numbers and live routes for the selected or nearest airliner.</div></div>"
+"<div><label>FlightAware calls per month (budget)</label><input id='c_fa_limit' type='number' min='10' max='20000'>"
+"<div class='help' id='fa_usage'>Lookups stop when the budget is used and spread evenly over the month. 900 stays inside the free Personal credit.</div></div>"
 "<div><label>openAIP API key</label><input id='c_openaip_key'>"
 "<div class='help'>Free account at openaip.net; powers the airspace zone layer.</div></div>"
 "<div><label>aisstream.io API key</label><input id='c_ais_key'>"
@@ -249,7 +305,7 @@ static const char INDEX_HTML[] =
 "<div><label>Custom tile URL template</label><input id='c_tile_url' placeholder='https://tiles.example.com/{z}/{x}/{y}.png'>"
 "<div class='help'>Overrides both. Any 256px {z}/{x}/{y} PNG tile server; tiles are shown as served, no restyling.</div></div>"
 "<div><label>Local ADS-B receiver (dump1090/readsb)</label><input id='c_local_adsb' placeholder='http://192.168.1.50:8080/data/aircraft.json'>"
-"<label>Use local receiver</label><select id='c_local_adsb_use'><option value='1'>on</option><option value='0'>off (internet sources)</option></select>"
+"<label>Use local receiver</label><select id='c_local_adsb_use'><option value='1'>on</option><option value='2'>on, plus internet sources</option><option value='0'>off (internet sources)</option></select>"
 "<div class='help'>Reads aircraft straight from your antenna instead of internet APIs; falls back automatically.</div></div>"
 "</div></div>"
 "<div class='cfgcard'><h4>Physical controls</h4>"
@@ -266,7 +322,7 @@ static const char INDEX_HTML[] =
 "<div><label>Restore</label><input type='file' id='bkfile' accept='.json'> <button type='button' onclick='restoreBk()'>Restore and restart</button> <span id='bkstat' class='dim'></span>"
 "<div class='help'>Loads a backup JSON and restarts the device with those settings.</div></div>"
 "</div></div>"
-"<div style='margin-top:14px'><button id='cfgsave' onclick='saveCfg()' disabled>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
+"<div class='savebar'><button id='cfgsave' onclick='saveCfg()' disabled>Save and restart</button> <span id='cfgstat' class='dim'></span></div></div>"
 "</div>"
 "<div id='t_hist' class='tabpane'>"
 "<div class='sect'><h3>Spotting history</h3>"
@@ -302,6 +358,7 @@ static const char INDEX_HTML[] =
 "<dt>Webhook payload</dt>"
 "<dd>On every alert (emergency squawk, watchlist, flyover) the device POSTs to your webhook URL: <code>{\"source\":\"esp32flight\",\"title\":\"...\",\"message\":\"...\"}</code></dd>"
 "</dl></div>"
+"</div>"
 "</div>"
 "<script>"
 "let map,layer,homeSet=false,routeLine=null,selHex=null,metric=false;"
@@ -457,7 +514,7 @@ static const char INDEX_HTML[] =
 "try{const r=await fetch('/api/config',{method:'POST',body:t});"
 "document.getElementById('bkstat').textContent=r.ok?'restored - device restarting':'restore failed';}"
 "catch(e){document.getElementById('bkstat').textContent='restore failed'}}"
-"const IN_ACTS=['next_view','prev_view','next_ac','prev_ac','zoom_in','zoom_out','wake','list_planes','list_ships','list_all','toggle_rain','follow_toggle','alt_min_up','alt_min_down','alt_max_up','alt_max_down','brightness_up','brightness_down'];"
+"const IN_ACTS=['next_view','prev_view','next_ac','prev_ac','zoom_in','zoom_out','wake','list_planes','list_ships','list_all','toggle_rain','follow_toggle','alt_min_up','alt_min_down','alt_max_up','alt_max_down','brightness_up','brightness_down','screensaver','screen_off','screen_on','screen_toggle','track_toggle'];"
 "let inRows=[];"
 "function inSel(v){return '<select class=\"in_a\">'+IN_ACTS.map(a=>`<option ${a===v?'selected':''}>${a}</option>`).join('')+'</select>';}"
 "function inRender(){const el=document.getElementById('inrows');if(!el)return;el.innerHTML=inRows.map((r,i)=>"
@@ -503,8 +560,12 @@ static const char INDEX_HTML[] =
 "const mm=v=>`${String(Math.floor(v/60)).padStart(2,'0')}:${String(v%60).padStart(2,'0')}`;"
 "document.getElementById('c_night_start').value=mm(c.night_start_min||1380);"
 "document.getElementById('c_night_end').value=mm(c.night_end_min||390);"
+"document.getElementById('c_amb_from').value=mm(c.amb_from_min==null?1320:c.amb_from_min);"
+"document.getElementById('c_amb_to').value=mm(c.amb_to_min==null?420:c.amb_to_min);"
+"if(c.fa_used!=null)document.getElementById('fa_usage').textContent=`Used this month: ${c.fa_used} of ${c.fa_limit} calls, about $${(c.fa_used*0.005).toFixed(2)} at list price. Lookups stop at the budget and are spread evenly over the month; 900 stays inside the free Personal credit.`;"
 "favs=(c.favs||[]).map(f=>f&&f.name?f:{});favRender();"
 "inParse(c.input_map||'');"
+"if(c.local_adsb_use&&c.local_merge)document.getElementById('c_local_adsb_use').value='2';"
 "document.getElementById('cfgsave').disabled=false;}catch(e){}}"
 "async function saveCfg(){const c={};"
 "['ssid','pass','web_pass','ntfy_topic','mqtt_uri','fa_key','watch_regs','webhook_url','local_adsb','filter_airport','openaip_key','ais_key','carto_key','tile_url'].forEach(k=>{const v=document.getElementById('c_'+k).value;if((k!=='pass'&&k!=='web_pass')||v)c[k]=v;});"
@@ -517,6 +578,10 @@ static const char INDEX_HTML[] =
 "c.alt_min_ft=+document.getElementById('c_alt_min_ft').value;c.alt_max_ft=+document.getElementById('c_alt_max_ft').value;"
 "const pm=id=>{const v=document.getElementById(id).value.split(':');return (+v[0])*60+(+v[1]||0);};"
 "c.night_start_min=pm('c_night_start');c.night_end_min=pm('c_night_end');"
+"c.amb_from_min=pm('c_amb_from');c.amb_to_min=pm('c_amb_to');"
+"c.amb_sched=document.getElementById('c_amb_sched').value==='1';"
+"c.pin_nearest=document.getElementById('c_pin_nearest').value==='1';"
+"c.fa_limit=Math.min(20000,Math.max(10,+document.getElementById('c_fa_limit').value||900));"
 "c.fixed=document.getElementById('c_fixed').value==='1';"
 "c.hide_ground=document.getElementById('c_hide_ground').value==='1';"
 "c.show_classes=0;for(let i=0;i<5;i++)if(document.getElementById('c_cls'+i).checked)c.show_classes|=1<<i;"
@@ -528,7 +593,7 @@ static const char INDEX_HTML[] =
 "c.brightness_ctl=document.getElementById('c_brightness_ctl').value==='1';"
 "c.brightness=Math.min(100,Math.max(5,+document.getElementById('c_brightness').value||100));"
 "c.input_map=inSerialize();"
-"c.local_adsb_use=document.getElementById('c_local_adsb_use').value==='1';"
+"{const lv=document.getElementById('c_local_adsb_use').value;c.local_adsb_use=lv!=='0';c.local_merge=lv==='2';}"
 "['taf','iss','sonde','ships','airspace'].forEach(k=>c[k+'_enabled']=document.getElementById('c_'+k+'_enabled').value==='1');"
 "['metric_units','metar_decoded','follow_mode','temp_f'].forEach(k=>c[k]=document.getElementById('c_'+k).value==='1');"
 "c.favs=favs.map(f=>f&&f.name?f:{name:'',lat:0,lon:0});"
@@ -547,7 +612,14 @@ static const char INDEX_HTML[] =
 ".filter(l=>l&&l.toLowerCase().includes(q)).slice(0,300).map(l=>{const p=l.split('\t');"
 "return `<tr><td class=dim>${new Date(+p[0]*1000).toLocaleString()}</td><td><b>${p[2]||''}</b></td>"
 "<td class=dim>${p[1]||''}</td><td>${p[3]||''}</td></tr>`;}).join('')||'<tr><td class=dim>empty</td></tr>';}"
-"load();loadCfg();setInterval(load,5000);"
+"async function trkLoad(){try{const r=await fetch('/api/track');const t=await r.json();"
+"const st=document.getElementById('trk_st');st.textContent=t.on?'tracking '+t.id:'off';st.classList.toggle('on',t.on);"
+"const i=document.getElementById('trk_id');if(document.activeElement!==i&&t.id)i.value=t.id;}catch(e){}}"
+"async function trkSet(on){const id=document.getElementById('trk_id').value.trim().toUpperCase();"
+"await fetch('/api/track',{method:'POST',body:JSON.stringify(on?{id:id,on:true}:{on:false})});trkLoad();}"
+"function trkSel(){const f=((lastd&&lastd.flights)||[]).find(x=>x.hex===selHex);"
+"if(f)document.getElementById('trk_id').value=(f.callsign||f.reg||f.hex).trim();}"
+"(async()=>{await load();await loadCfg();await trkLoad();})();setInterval(load,5000);setInterval(trkLoad,15000);"
 "async function ota(){const f=document.getElementById('fw').files[0];if(!f)return;"
 "const st=document.getElementById('otastat');st.textContent='uploading...';"
 "try{const r=await fetch('/ota',{method:'POST',body:f});"
@@ -676,6 +748,16 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "map_light", c->map_light);
     cJSON_AddBoolToObject(root, "retro_map", c->retro_map);
     cJSON_AddNumberToObject(root, "amb_style", c->amb_style);
+    {
+        int used, limit;
+        faflight_usage(&used, &limit);
+        cJSON_AddNumberToObject(root, "fa_limit", limit);
+        cJSON_AddNumberToObject(root, "fa_used", used);
+    }
+    cJSON_AddBoolToObject(root, "pin_nearest", c->pin_nearest);
+    cJSON_AddBoolToObject(root, "amb_sched", c->amb_sched);
+    cJSON_AddNumberToObject(root, "amb_from_min", c->amb_from_min);
+    cJSON_AddNumberToObject(root, "amb_to_min", c->amb_to_min);
     cJSON_AddNumberToObject(root, "theme", c->theme);
     cJSON_AddNumberToObject(root, "lang", c->lang);
     cJSON_AddStringToObject(root, "ntfy_topic", c->ntfy_topic);
@@ -685,6 +767,7 @@ static esp_err_t config_get(httpd_req_t *req)
     cJSON_AddStringToObject(root, "webhook_url", c->webhook_url);
     cJSON_AddStringToObject(root, "local_adsb", c->local_adsb);
     cJSON_AddBoolToObject(root, "local_adsb_use", c->local_adsb_use);
+    cJSON_AddBoolToObject(root, "local_merge", c->local_merge);
     cJSON_AddBoolToObject(root, "web_pass_set", c->web_pass[0] != '\0');
     cJSON_AddBoolToObject(root, "cpa_alerts", c->cpa_alerts);
     cJSON_AddBoolToObject(root, "cpa_all", c->cpa_all);
@@ -754,6 +837,7 @@ static esp_err_t backup_get(httpd_req_t *req)
     cJSON_AddStringToObject(root, "webhook_url", c->webhook_url);
     cJSON_AddStringToObject(root, "local_adsb", c->local_adsb);
     cJSON_AddBoolToObject(root, "local_adsb_use", c->local_adsb_use);
+    cJSON_AddBoolToObject(root, "local_merge", c->local_merge);
     cJSON_AddStringToObject(root, "filter_airport", c->filter_airport);
     cJSON_AddStringToObject(root, "openaip_key", c->openaip_key);
     cJSON_AddStringToObject(root, "ais_key", c->ais_key);
@@ -774,6 +858,11 @@ static esp_err_t backup_get(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "map_light", c->map_light);
     cJSON_AddBoolToObject(root, "retro_map", c->retro_map);
     cJSON_AddNumberToObject(root, "amb_style", c->amb_style);
+    cJSON_AddNumberToObject(root, "fa_limit", c->fa_limit);
+    cJSON_AddBoolToObject(root, "pin_nearest", c->pin_nearest);
+    cJSON_AddBoolToObject(root, "amb_sched", c->amb_sched);
+    cJSON_AddNumberToObject(root, "amb_from_min", c->amb_from_min);
+    cJSON_AddNumberToObject(root, "amb_to_min", c->amb_to_min);
     cJSON_AddBoolToObject(root, "hide_ground", c->hide_ground);
     cJSON_AddNumberToObject(root, "show_classes", c->show_classes);
     cJSON_AddBoolToObject(root, "cpa_alerts", c->cpa_alerts);
@@ -864,6 +953,9 @@ static esp_err_t config_post(httpd_req_t *req)
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "local_adsb_use")))) {
         c->local_adsb_use = cJSON_IsTrue(j);
     }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "local_merge")))) {
+        c->local_merge = cJSON_IsTrue(j);
+    }
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "retro_map")))) {
         c->retro_map = cJSON_IsTrue(j);
     }
@@ -940,6 +1032,24 @@ static esp_err_t config_post(httpd_req_t *req)
     }
     if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "follow_mode")))) {
         c->follow_mode = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "pin_nearest")))) {
+        c->pin_nearest = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsBool((j = cJSON_GetObjectItem(root, "amb_sched")))) {
+        c->amb_sched = cJSON_IsTrue(j);
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "amb_from_min"))) &&
+        j->valuedouble >= 0 && j->valuedouble < 1440) {
+        c->amb_from_min = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "amb_to_min"))) &&
+        j->valuedouble >= 0 && j->valuedouble < 1440) {
+        c->amb_to_min = (int)j->valuedouble;
+    }
+    if (cJSON_IsNumber((j = cJSON_GetObjectItem(root, "fa_limit"))) &&
+        j->valuedouble >= 10 && j->valuedouble <= 20000) {
+        c->fa_limit = (uint16_t)j->valuedouble;
     }
     const cJSON *jfav = cJSON_GetObjectItem(root, "favs");
     if (cJSON_IsArray(jfav)) {
@@ -1106,6 +1216,55 @@ static esp_err_t input_req(httpd_req_t *req)
     }
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, "{\"ok\":true}");
+}
+
+/* Copy keeping only characters that need no JSON escaping. */
+static void json_escape_min(const char *in, char *out, size_t n)
+{
+    size_t o = 0;
+    for (; *in && o + 1 < n; in++) {
+        if (*in != '"' && *in != '\\' && (unsigned char)*in >= 0x20) {
+            out[o++] = *in;
+        }
+    }
+    out[o] = '\0';
+}
+
+/* Track mode, applied live (no restart): GET -> {"id","on"},
+ * POST {"id":"LOT3AB","on":true}; an empty id switches tracking off. */
+static esp_err_t track_req(httpd_req_t *req)
+{
+    AUTH_GUARD(req);
+    settings_t *c = settings_get();
+    if (req->method == HTTP_POST) {
+        char body[128];
+        int n = httpd_req_recv(req, body, sizeof(body) - 1);
+        if (n <= 0) {
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "body required");
+        }
+        body[n] = '\0';
+        cJSON *root = cJSON_Parse(body);
+        if (root == NULL) {
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad JSON");
+        }
+        const cJSON *j = cJSON_GetObjectItem(root, "id");
+        if (cJSON_IsString(j)) {
+            strlcpy(c->track_id, j->valuestring, sizeof(c->track_id));
+            c->track_on = c->track_id[0] != '\0';
+        }
+        j = cJSON_GetObjectItem(root, "on");
+        if (cJSON_IsBool(j)) {
+            c->track_on = cJSON_IsTrue(j) && c->track_id[0] != '\0';
+        }
+        cJSON_Delete(root);
+        settings_save();
+    }
+    char out[96];
+    char id[24];
+    json_escape_min(c->track_id, id, sizeof(id));
+    snprintf(out, sizeof(out), "{\"id\":\"%s\",\"on\":%s}", id, c->track_on ? "true" : "false");
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, out);
 }
 
 /* learn mode: last physical event seen by the expander poller */
@@ -1313,7 +1472,17 @@ void web_server_start(void)
 #ifndef APKFLIGHT
     config.core_id = 0;   /* keep TLS/JSON chatter off the LVGL core */
 #endif
-    config.max_uri_handlers = 20;
+    config.max_uri_handlers = 24;
+    /* httpd took 7 of only 10 lwIP sockets: one open panel tab
+     * (keep-alive + 5 s polling) left nothing for the device's own TLS
+     * fetches, and tiles, routes and weather failed together (#35). lwIP
+     * now has 16 (sdkconfig): 6 for the panel + 3 httpd internals leaves
+     * 7 for outbound. Capping the panel at 4 instead dropped a browser's
+     * parallel requests. */
+#ifndef APKFLIGHT
+    config.max_open_sockets = 6;
+    config.lru_purge_enable = true;
+#endif
     config.lru_purge_enable = true;
 
     httpd_handle_t server = NULL;
@@ -1336,6 +1505,8 @@ void web_server_start(void)
         { .uri = "/api/input", .method = HTTP_GET, .handler = input_req },
         { .uri = "/api/input", .method = HTTP_POST, .handler = input_req },
         { .uri = "/api/input/last", .method = HTTP_GET, .handler = input_last_get },
+        { .uri = "/api/track", .method = HTTP_GET, .handler = track_req },
+        { .uri = "/api/track", .method = HTTP_POST, .handler = track_req },
 #endif
         { .uri = "/metrics", .method = HTTP_GET, .handler = metrics_get },
         { .uri = "/ota", .method = HTTP_POST, .handler = ota_post },

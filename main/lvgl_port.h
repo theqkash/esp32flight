@@ -21,7 +21,11 @@ extern "C" {
  * LVGL related parameters, can be adjusted by users
  *
  */
-#if CONFIG_CANFLIGHT_BOARD_JC8012P4A1
+#if CONFIG_CANFLIGHT_BOARD_ELECROW_P4_10
+/* Elecrow CrowPanel Advanced 10.1: native landscape 1024x600, no rotation */
+#define LVGL_PORT_H_RES             (1024)
+#define LVGL_PORT_V_RES             (600)
+#elif CONFIG_CANFLIGHT_BOARD_JC8012P4A1
 /* Guition JC8012P4A1: 10.1" 1280x800 (landscape UI over the portrait MIPI-DSI panel) */
 #define LVGL_PORT_H_RES             (1280)
 #define LVGL_PORT_V_RES             (800)

@@ -6,6 +6,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "waveshare_rgb_lcd_port.h"
+#include "lvgl.h"
 
 #include "airports.h"
 #include "flight_task.h"
@@ -26,6 +27,16 @@ static void *psram_prefer_malloc(size_t n)
     return heap_caps_malloc_prefer(n, 2,
                                    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT,
                                    MALLOC_CAP_8BIT);
+}
+
+static void backlight_after_first_frame(lv_timer_t *t)
+{
+    (void)t;
+    waveshare_rgb_lcd_bl_on();
+    if (settings_get()->brightness_ctl && settings_get()->brightness < 100 &&
+        waveshare_rgb_lcd_bl_dimmable()) {
+        waveshare_rgb_lcd_bl_pct(settings_get()->brightness);
+    }
 }
 
 void app_main(void)
@@ -50,11 +61,6 @@ void app_main(void)
     settings_load();
 
     ESP_ERROR_CHECK(waveshare_esp32_s3_rgb_lcd_init());
-    waveshare_rgb_lcd_bl_on();
-    if (settings_get()->brightness_ctl && settings_get()->brightness < 100 &&
-        waveshare_rgb_lcd_bl_dimmable()) {
-        waveshare_rgb_lcd_bl_pct(settings_get()->brightness);
-    }
 
     logos_init();
     airports_init();
@@ -68,6 +74,14 @@ void app_main(void)
         if (settings_get()->wifi_ssid[0] == '\0') {
             ui_settings_open();   /* first boot: land straight in setup */
         }
+        /* Light the panel only once it shows the first real frame: an
+         * early bl_on lit an empty framebuffer, the white flash at every
+         * boot. A one-shot LVGL timer runs in the LVGL task after its
+         * first refresh. (Never lv_refr_now() from here: the RGB flush
+         * waits for a vsync notification addressed to the LVGL task and
+         * would block app_main forever.) */
+        lv_timer_t *blt = lv_timer_create(backlight_after_first_frame, 250, NULL);
+        lv_timer_set_repeat_count(blt, 1);
         lvgl_port_unlock();
     }
 

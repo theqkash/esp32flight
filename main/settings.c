@@ -1,6 +1,7 @@
 #include "settings.h"
 
 #include "flight_model.h"
+#include "faflight.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,6 +76,16 @@ void settings_load(void)
     s_settings.metar_decoded = false;
     s_settings.follow_mode = false;
     s_settings.night_auto = false;
+    s_settings.fa_limit = FA_DEFAULT_MONTHLY;
+    s_settings.fa_used = 0;
+    s_settings.fa_month = 0;
+    s_settings.pin_nearest = false;
+    s_settings.amb_sched = false;
+    s_settings.amb_from_min = 22 * 60;
+    s_settings.amb_to_min = 7 * 60;
+    s_settings.local_merge = false;
+    s_settings.track_id[0] = '\0';
+    s_settings.track_on = false;
     memset(s_settings.fav_name, 0, sizeof(s_settings.fav_name));
 
     nvs_handle_t h;
@@ -152,6 +163,16 @@ void settings_load(void)
     get_str(h, "ntfy", s_settings.ntfy_topic, sizeof(s_settings.ntfy_topic));
     get_str(h, "mqtt", s_settings.mqtt_uri, sizeof(s_settings.mqtt_uri));
     get_str(h, "fakey", s_settings.fa_key, sizeof(s_settings.fa_key));
+    uint16_t u16 = 0;
+    if (nvs_get_u16(h, "falimit", &u16) == ESP_OK && u16 > 0) {
+        s_settings.fa_limit = u16;
+    }
+    if (nvs_get_u16(h, "faused", &u16) == ESP_OK) {
+        s_settings.fa_used = u16;
+    }
+    if (nvs_get_u16(h, "famonth", &u16) == ESP_OK) {
+        s_settings.fa_month = u16;
+    }
     get_str(h, "watch", s_settings.watch_regs, sizeof(s_settings.watch_regs));
     get_str(h, "webhook", s_settings.webhook_url, sizeof(s_settings.webhook_url));
     get_str(h, "ladsb", s_settings.local_adsb, sizeof(s_settings.local_adsb));
@@ -192,6 +213,25 @@ void settings_load(void)
     }
     if (nvs_get_i32(h, "amb_idle", &m) == ESP_OK && m >= 0 && m <= 240) {
         s_settings.ambient_idle_min = m;
+    }
+    if (nvs_get_u8(h, "ambsched", &b8) == ESP_OK) {
+        s_settings.amb_sched = b8 != 0;
+    }
+    if (nvs_get_i32(h, "amb_from", &m) == ESP_OK && m >= 0 && m < 1440) {
+        s_settings.amb_from_min = m;
+    }
+    if (nvs_get_i32(h, "amb_to", &m) == ESP_OK && m >= 0 && m < 1440) {
+        s_settings.amb_to_min = m;
+    }
+    if (nvs_get_u8(h, "pinnear", &b8) == ESP_OK) {
+        s_settings.pin_nearest = b8 != 0;
+    }
+    if (nvs_get_u8(h, "lmerge", &b8) == ESP_OK) {
+        s_settings.local_merge = b8 != 0;
+    }
+    get_str(h, "trackid", s_settings.track_id, sizeof(s_settings.track_id));
+    if (nvs_get_u8(h, "trackon", &b8) == ESP_OK) {
+        s_settings.track_on = b8 != 0;
     }
     if (nvs_get_u8(h, "taf", &b8) == ESP_OK) {
         s_settings.taf_enabled = b8 != 0;
@@ -279,6 +319,7 @@ esp_err_t settings_save(void)
     nvs_set_str(h, "ntfy", s_settings.ntfy_topic);
     nvs_set_str(h, "mqtt", s_settings.mqtt_uri);
     nvs_set_str(h, "fakey", s_settings.fa_key);
+    nvs_set_u16(h, "falimit", s_settings.fa_limit);
     nvs_set_str(h, "watch", s_settings.watch_regs);
     nvs_set_str(h, "webhook", s_settings.webhook_url);
     nvs_set_str(h, "ladsb", s_settings.local_adsb);
@@ -295,6 +336,13 @@ esp_err_t settings_save(void)
     nvs_set_i32(h, "night_s", s_settings.night_start_min);
     nvs_set_i32(h, "night_e", s_settings.night_end_min);
     nvs_set_i32(h, "amb_idle", s_settings.ambient_idle_min);
+    nvs_set_u8(h, "ambsched", s_settings.amb_sched ? 1 : 0);
+    nvs_set_i32(h, "amb_from", s_settings.amb_from_min);
+    nvs_set_i32(h, "amb_to", s_settings.amb_to_min);
+    nvs_set_u8(h, "pinnear", s_settings.pin_nearest ? 1 : 0);
+    nvs_set_u8(h, "lmerge", s_settings.local_merge ? 1 : 0);
+    nvs_set_str(h, "trackid", s_settings.track_id);
+    nvs_set_u8(h, "trackon", s_settings.track_on ? 1 : 0);
     nvs_set_u8(h, "taf", s_settings.taf_enabled ? 1 : 0);
     nvs_set_u8(h, "iss", s_settings.iss_enabled ? 1 : 0);
     nvs_set_u8(h, "sonde", s_settings.sonde_enabled ? 1 : 0);
@@ -325,4 +373,16 @@ esp_err_t settings_save(void)
     nvs_close(h);
     ESP_LOGI(TAG, "saved");
     return err;
+}
+
+void settings_save_fa_usage(void)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS, NVS_READWRITE, &h) != ESP_OK) {
+        return;
+    }
+    nvs_set_u16(h, "faused", s_settings.fa_used);
+    nvs_set_u16(h, "famonth", s_settings.fa_month);
+    nvs_commit(h);
+    nvs_close(h);
 }

@@ -5,6 +5,7 @@
 #include <string.h>
 #include "cJSON.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "http_util.h"
 
 static const char *TAG = "tz";
@@ -16,7 +17,12 @@ typedef struct {
     int  offset_s;
     bool valid;
     bool used;
+    int64_t fetched_us;
 } tz_entry_t;
+
+/* A UTC offset is only true for the day it was looked up: daylight saving
+ * moves it twice a year. Airport offsets expire after 6 h. */
+#define TZ_MAX_AGE_US (6LL * 3600 * 1000000)
 
 static tz_entry_t s_cache[TZ_CACHE_SIZE];
 static int s_next;
@@ -48,6 +54,10 @@ bool tz_offset_for(const char *key, double lat, double lon, int *offset_s)
     }
     for (int i = 0; i < TZ_CACHE_SIZE; i++) {
         if (s_cache[i].used && strcmp(s_cache[i].key, key) == 0) {
+            if (esp_timer_get_time() - s_cache[i].fetched_us > TZ_MAX_AGE_US) {
+                s_cache[i].used = false;   /* stale: look it up again below */
+                break;
+            }
             *offset_s = s_cache[i].offset_s;
             return s_cache[i].valid;
         }
@@ -58,6 +68,7 @@ bool tz_offset_for(const char *key, double lat, double lon, int *offset_s)
     memset(slot, 0, sizeof(*slot));
     strlcpy(slot->key, key, sizeof(slot->key));
     slot->used = true;
+    slot->fetched_us = esp_timer_get_time();
 
     char url[160];
     snprintf(url, sizeof(url),

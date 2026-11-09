@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
 #include "flight_model.h"
 
 /* All ui_* functions must be called while holding the LVGL lock
@@ -15,6 +17,11 @@ void ui_apply_brightness(void); /* re-apply settings brightness after bl_on */
 void ui_toast(const char *text);          /* 2s bottom-center notice, any task */
 bool ui_input_action(const char *action); /* #13 actions; call under LVGL lock */
 void ui_set_list_mode(int mode);   /* 0 planes, 1 ships, 2 all */
+/* Any task: hex of the aircraft in the detail view ("" if none), and
+ * whether the night schedule has the backlight off. Racy reads of small
+ * values, good enough for scheduling network lookups. */
+void ui_selected_hex(char *out, size_t n);
+bool ui_screen_dark(void);
 
 /* One-line status in the header (Wi-Fi / location / errors). */
 void ui_set_status(const char *text);

@@ -85,7 +85,22 @@ void runways_draw(uint16_t *fb, int w, int h, const tile_view_t *view)
     if (s_count < 0) {
         load();
     }
+    /* Projecting all 4000+ runways cost enough on every radar and
+     * screensaver render to show up in task-watchdog backtraces (#35).
+     * Cull by the view's lat/lon box first (one inverse Mercator per
+     * edge, 0.5 degree margin), project only what can be visible. */
+    double world = 256.0 * (double)(1 << view->z);
+    double lon_w = view->px0 / world * 360.0 - 180.0;
+    double lon_e = (view->px0 + view->w) / world * 360.0 - 180.0;
+    double lat_n = atan(sinh(M_PI * (1.0 - 2.0 * view->py0 / world))) * 180.0 / M_PI;
+    double lat_s = atan(sinh(M_PI * (1.0 - 2.0 * (view->py0 + view->h) / world))) * 180.0 / M_PI;
+    bool lon_cull = lon_w >= -180.0 && lon_e <= 180.0;   /* skip near the antimeridian */
     for (int i = 0; i < s_count; i++) {
+        float mlat = s_rw[i].le_lat, mlon = s_rw[i].le_lon;
+        if (mlat < lat_s - 0.5 || mlat > lat_n + 0.5 ||
+            (lon_cull && (mlon < lon_w - 0.5 || mlon > lon_e + 0.5))) {
+            continue;
+        }
         int x0, y0, x1, y1;
         tilemap_project(view, s_rw[i].le_lat, s_rw[i].le_lon, &x0, &y0);
         tilemap_project(view, s_rw[i].he_lat, s_rw[i].he_lon, &x1, &y1);

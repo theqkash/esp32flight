@@ -1,4 +1,6 @@
 #include "logos.h"
+#include "esp_http_client.h"
+#include <errno.h>
 
 #include "extra/libs/png/lodepng.h"
 
@@ -98,7 +100,10 @@ esp_err_t logos_init(void)
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/assets",
         .partition_label = "assets",
-        .max_files = 4,
+        /* tiles, logos, flags, airports and runways all share this
+         * pool; at 4 a busy tile render starved logo opens and they were
+         * then blacklisted as absent (#35) */
+        .max_files = 10,
         .format_if_mount_failed = true,
     };
     esp_err_t err = esp_vfs_spiffs_register(&conf);
@@ -217,7 +222,10 @@ static void logo_load_one(const char *icao)
             fclose(f);
             return;
         }
-        absent_remember(icao);   /* not in flash: online only from now on */
+        if (errno != ENOENT) {
+            return;              /* no free descriptor / memory: try next pass */
+        }
+        absent_remember(icao);   /* genuinely not in flash: online only from now on */
     }
 
     if (!index_has(icao)) {
@@ -225,6 +233,12 @@ static void logo_load_one(const char *icao)
         return;
     }
 
+    /* after a transport failure, stay off the network for a minute
+     * instead of retrying every render pass */
+    static int64_t s_net_fail_us;
+    if (s_net_fail_us != 0 && esp_timer_get_time() - s_net_fail_us < 60LL * 1000000) {
+        return;
+    }
     char url[128];
     snprintf(url, sizeof(url), LOGO_FETCH_URL, icao);
     char *buf = heap_caps_malloc(LOGO_MAX_BYTES, MALLOC_CAP_SPIRAM);
@@ -247,8 +261,11 @@ static void logo_load_one(const char *icao)
                 fclose(f);
             }
         }
+    } else if (err == ESP_OK || (err >= ESP_ERR_HTTP_BASE + 400 &&
+                                 err < ESP_ERR_HTTP_BASE + 500)) {
+        miss_remember(icao);   /* the server answered: not a logo, don't retry */
     } else if (buf != NULL) {
-        miss_remember(icao);   /* 404 or offline: don't retry this one */
+        s_net_fail_us = esp_timer_get_time();   /* offline/timeout: retry later */
     }
     free(buf);
 }

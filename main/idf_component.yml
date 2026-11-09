@@ -24,6 +24,11 @@ dependencies:
     version: "^1"
     rules:
       - if: "target == esp32p4"
+  # Elecrow CrowPanel Advanced 10.1 (ESP32-P4)
+  espressif/esp_lcd_ek79007:
+    version: "^1"
+    rules:
+      - if: "target == esp32p4"
   espressif/esp_lcd_touch_st7123:
     version: "^1"
     rules:

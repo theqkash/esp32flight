@@ -36,7 +36,7 @@ tools/simshot/*.png
 tools/simshot/simshot
 tools/simshot/apk_version.h
 assets-4mb/
-stage-045/
+stage-04*/
 sdkconfig.8mb
 sdkconfig.guition
 sdkconfig.sunton43

@@ -172,6 +172,14 @@ menu "Example Configuration"
                     EV-board pins. Two panel revisions exist; pick the V2
                     option below for rear-case batch 2628 and newer.
 
+            config CANFLIGHT_BOARD_ELECROW_P4_10
+                bool "Elecrow CrowPanel Advanced 10.1 (ESP32-P4, 1024x600 MIPI-DSI)"
+                help
+                    Elecrow's 10.1 inch ESP32-P4 HMI: EK79007 MIPI-DSI panel
+                    (native landscape 1024x600), GT911 touch on I2C 45/46,
+                    backlight PWM on GPIO31, ESP32-C6 for Wi-Fi over SDIO
+                    (V1.1/V1.2 wiring, see sdkconfig.elecrow10). Beta.
+
             config CANFLIGHT_BOARD_CROWPANEL_ADV70
                 bool "Elecrow CrowPanel Advance 7.0 (DIS02170A V1.2+, 800x480, 16 MB)"
                 help

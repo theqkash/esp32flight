@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "cJSON.h"
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "lvgl.h"
 
 #include "fonts.h"
@@ -45,51 +46,113 @@ typedef struct {
     char hex[8];
 } photo_req_t;
 
+static const char *TAG = "photo";
+
+/* Source 1: planespotters.net public API (no key). Their terms ask for
+ * the photographer's credit next to the picture. */
+static bool from_planespotters(const char *hex, char *url, size_t un,
+                               char *credit, size_t cn, char *json, size_t jn)
+{
+    char api[96];
+    snprintf(api, sizeof(api), "https://api.planespotters.net/pub/photos/hex/%s", hex);
+    esp_err_t err = http_get_to_buffer(api, json, jn, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "planespotters %s: %s", hex, esp_err_to_name(err));
+        return false;
+    }
+    bool ok = false;
+    cJSON *root = cJSON_Parse(json);
+    const cJSON *photos = root ? cJSON_GetObjectItem(root, "photos") : NULL;
+    const cJSON *ph = cJSON_IsArray(photos) ? cJSON_GetArrayItem(photos, 0) : NULL;
+    if (ph != NULL) {
+        const cJSON *tl = cJSON_GetObjectItem(ph, "thumbnail_large");
+        if (tl == NULL) {
+            tl = cJSON_GetObjectItem(ph, "thumbnail");
+        }
+        const cJSON *src = tl ? cJSON_GetObjectItem(tl, "src") : NULL;
+        const cJSON *who = cJSON_GetObjectItem(ph, "photographer");
+        if (cJSON_IsString(src)) {
+            strlcpy(url, src->valuestring, un);
+            snprintf(credit, cn, "photo: %s / planespotters.net",
+                     cJSON_IsString(who) ? who->valuestring : "unknown");
+            ok = true;
+        }
+    }
+    cJSON_Delete(root);
+    ESP_LOGI(TAG, "planespotters %s: %s", hex, ok ? "photo found" : "no photo");
+    return ok;
+}
+
+/* Source 2: adsbdb's aircraft record, whose photo links point at
+ * airport-data.com (thin coverage). Full photo first, then thumbnail. */
+static int from_adsbdb(const char *hex, char urls[2][256], char *json, size_t jn)
+{
+    char api[80];
+    snprintf(api, sizeof(api), "https://api.adsbdb.com/v0/aircraft/%s", hex);
+    esp_err_t err = http_get_to_buffer(api, json, jn, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "adsbdb %s: %s", hex, esp_err_to_name(err));
+        return 0;
+    }
+    int n = 0;
+    cJSON *root = cJSON_Parse(json);
+    const cJSON *resp = root ? cJSON_GetObjectItem(root, "response") : NULL;
+    const cJSON *acj = resp ? cJSON_GetObjectItem(resp, "aircraft") : NULL;
+    const char *keys[2] = { "url_photo", "url_photo_thumbnail" };
+    for (int i = 0; i < 2 && acj != NULL; i++) {
+        const cJSON *ju = cJSON_GetObjectItem(acj, keys[i]);
+        if (cJSON_IsString(ju) && ju->valuestring[0]) {
+            strlcpy(urls[n++], ju->valuestring, 256);
+        }
+    }
+    cJSON_Delete(root);
+    ESP_LOGI(TAG, "adsbdb %s: %d photo link(s)", hex, n);
+    return n;
+}
+
+static uint16_t *fetch_decode(const char *url, uint8_t *raw, int *w, int *h)
+{
+    size_t len = 0;
+    esp_err_t err = http_get_to_buffer(url, (char *)raw, PHOTO_MAX_BYTES, &len);
+    if (err != ESP_OK || len <= 4) {
+        ESP_LOGW(TAG, "image fetch failed (%s): %s", esp_err_to_name(err), url);
+        return NULL;
+    }
+    uint16_t *px = jpeg_decode_rgb565(raw, len, 700, 380, w, h);
+    ESP_LOGI(TAG, "image %u B -> %s", (unsigned)len, px ? "decoded" : "decode failed");
+    return px;
+}
+
 static void photo_task(void *arg)
 {
     photo_req_t *req = arg;
-    char url_full[256] = "";
-    char url_thumb[256] = "";
-
-    char *json = malloc(8192);
-    if (json != NULL) {
-        char api[80];
-        snprintf(api, sizeof(api), "https://api.adsbdb.com/v0/aircraft/%s", req->hex);
-        if (http_get_to_buffer(api, json, 8192, NULL) == ESP_OK) {
-            cJSON *root = cJSON_Parse(json);
-            if (root != NULL) {
-                const cJSON *resp = cJSON_GetObjectItem(root, "response");
-                const cJSON *acj = resp ? cJSON_GetObjectItem(resp, "aircraft") : NULL;
-                const cJSON *ju = acj ? cJSON_GetObjectItem(acj, "url_photo") : NULL;
-                if (cJSON_IsString(ju)) {
-                    strlcpy(url_full, ju->valuestring, sizeof(url_full));
-                }
-                ju = acj ? cJSON_GetObjectItem(acj, "url_photo_thumbnail") : NULL;
-                if (cJSON_IsString(ju)) {
-                    strlcpy(url_thumb, ju->valuestring, sizeof(url_thumb));
-                }
-                cJSON_Delete(root);
-            }
-        }
-        free(json);
-    }
-
-    /* Prefer the full photo (scaled down at decode), fall back to thumbnail */
+    char credit[96] = "";
     uint16_t *pixels = NULL;
     int w = 0, h = 0;
+
+    char *json = malloc(8192);
     uint8_t *raw = heap_caps_malloc(PHOTO_MAX_BYTES, MALLOC_CAP_SPIRAM);
-    if (raw != NULL) {
-        const char *urls[2] = { url_full, url_thumb };
-        for (int i = 0; i < 2 && pixels == NULL; i++) {
-            size_t len = 0;
-            if (urls[i][0] == '\0') {
-                continue;
+    if (json != NULL && raw != NULL) {
+        char url[256];
+        if (from_planespotters(req->hex, url, sizeof(url), credit, sizeof(credit),
+                               json, 8192)) {
+            pixels = fetch_decode(url, raw, &w, &h);
+        }
+        if (pixels == NULL) {
+            char urls[2][256];
+            int n = from_adsbdb(req->hex, urls, json, 8192);
+            for (int i = 0; i < n && pixels == NULL; i++) {
+                pixels = fetch_decode(urls[i], raw, &w, &h);
             }
-            if (http_get_to_buffer(urls[i], (char *)raw, PHOTO_MAX_BYTES, &len) == ESP_OK && len > 4) {
-                pixels = jpeg_decode_rgb565(raw, len, 700, 380, &w, &h);
+            if (pixels != NULL) {
+                strlcpy(credit, "photo: airport-data.com", sizeof(credit));
             }
         }
-        free(raw);
+    }
+    free(json);
+    free(raw);
+    if (pixels == NULL) {
+        ESP_LOGI(TAG, "%s: no photo from any source", req->hex);
     }
 
     if (lvgl_port_lock(-1)) {
@@ -111,7 +174,7 @@ static void photo_task(void *arg)
                 }
                 lv_obj_clear_flag(s_img, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(s_msg, LV_OBJ_FLAG_HIDDEN);
-                lv_label_set_text(s_credit, "photo: planespotters.net");
+                lv_label_set_text(s_credit, credit);
             } else {
                 lv_label_set_text(s_msg, L()->no_photo);
             }

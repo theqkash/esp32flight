@@ -395,6 +395,8 @@ static void board_detect(void)
 #if CONFIG_CANFLIGHT_BOARD_WAVESHARE_7
     s_board = &k_waveshare;
     i2c_master_init(s_board->i2c_sda, s_board->i2c_scl);
+    ch422g_write(0x24, 0x01);
+    ch422g_write(0x38, 0x2A);           /* backlight off until the first frame */
 #elif CONFIG_CANFLIGHT_BOARD_GUITION_JC8048W550
     s_board = &k_guition;
     i2c_master_init(s_board->i2c_sda, s_board->i2c_scl);
@@ -437,6 +439,7 @@ static void board_detect(void)
     i2c_master_init(k_waveshare.i2c_sda, k_waveshare.i2c_scl);
     if (ch422g_write(0x24, 0x01) == ESP_OK) {
         s_board = &k_waveshare;
+        ch422g_write(0x38, 0x2A);       /* backlight off until the first frame */
     } else {
         s_board = &k_guition;
         i2c_driver_delete(I2C_MASTER_NUM);
@@ -477,12 +480,16 @@ static void touch_reset(void)
         };
         gpio_config(&io_conf);
 
+        /* Output bits: 0x02 TP_RST, 0x04 backlight (DISP), 0x08 LCD_RST.
+         * The old values 0x2C/0x2E had the backlight bit set, lighting
+         * the panel for ~400 ms before it had a picture: the white flash
+         * at every boot. The backlight stays dark until bl_on. */
         ch422g_write(0x24, 0x01);
-        ch422g_write(0x38, 0x2C);           /* TP_RST low */
+        ch422g_write(0x38, 0x28);           /* TP_RST low, backlight off */
         esp_rom_delay_us(100 * 1000);
         gpio_set_level(GPIO_TOUCH_INT, 0);  /* INT low during reset -> addr 0x5D */
         esp_rom_delay_us(100 * 1000);
-        ch422g_write(0x38, 0x2E);           /* TP_RST high */
+        ch422g_write(0x38, 0x2A);           /* TP_RST high, backlight off */
         esp_rom_delay_us(200 * 1000);
     } else {
         if (s_board->tp_rst_gpio < 0) {

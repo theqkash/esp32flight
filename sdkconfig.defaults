@@ -55,3 +55,7 @@ CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 CONFIG_SPIFFS_OBJ_NAME_LEN=48
 
 CONFIG_LV_MEM_CUSTOM_INCLUDE="esp_heap_caps.h"
+
+# Room for the web panel (6 httpd sockets + 3 internal) AND the device's own
+# TLS fetches: at 10 one open panel tab starved tiles/routes/weather (#35)
+CONFIG_LWIP_MAX_SOCKETS=16

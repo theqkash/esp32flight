@@ -10,6 +10,7 @@
 #ifndef APKFLIGHT
 #include "waveshare_rgb_lcd_port.h"
 #include "ui.h"
+#include "input_ctl.h"
 #endif
 
 static const char *TAG = "mqtt";
@@ -20,10 +21,18 @@ static const char *TAG = "mqtt";
 #define BL_BRI_TOPIC    "esp32flight/backlight/brightness"
 #define BL_SET_TOPIC    "esp32flight/backlight/set"
 #define BL_BRI_SET      "esp32flight/backlight/brightness/set"
+/* Screen on/off switch and a screensaver button: work on every board,
+ * independent of the brightness master switch */
+#define SCR_CONFIG_TOPIC "homeassistant/switch/esp32flight_screen/config"
+#define SCR_STATE_TOPIC  "esp32flight/screen/state"
+#define SCR_SET_TOPIC    "esp32flight/screen/set"
+#define SAVER_CONFIG_TOPIC "homeassistant/button/esp32flight_screensaver/config"
+#define SAVER_SET_TOPIC  "esp32flight/screensaver/set"
 
 static esp_mqtt_client_handle_t s_client;
 static bool s_connected;
 static bool s_light_on = true;
+static int s_scr_published = -1;   /* last screen state sent, -1 = none */
 
 #ifndef APKFLIGHT
 /* HA brightness sliders stream messages while dragged; batch the NVS write */
@@ -73,6 +82,8 @@ static void publish_discovery(void)
         { "count",    "Aircraft in range", "{{ value_json.count }}", "aircraft" },
         { "unique",   "Unique aircraft (session)", "{{ value_json.unique }}", "aircraft" },
         { "nearest_dist", "Nearest distance", "{{ value_json.nearest_km }}", "km" },
+        { "fa_calls", "FlightAware calls this month", "{{ value_json.fa_calls }}", "calls" },
+        { "fa_cost", "FlightAware cost this month (estimate)", "{{ value_json.fa_cost }}", "USD" },
     };
     const char *model =
 #ifndef APKFLIGHT
@@ -123,13 +134,60 @@ static void publish_discovery(void)
     } else {
         esp_mqtt_client_publish(s_client, BL_CONFIG_TOPIC, "", 0, 1, 1);
     }
+    {
+        char payload[480];
+        snprintf(payload, sizeof(payload),
+                 "{\"name\":\"Screen\",\"icon\":\"mdi:monitor\","
+                 "\"command_topic\":\"" SCR_SET_TOPIC "\","
+                 "\"state_topic\":\"" SCR_STATE_TOPIC "\","
+                 "\"unique_id\":\"esp32flight_screen\","
+                 "\"device\":{\"identifiers\":[\"esp32flight\"],"
+                 "\"name\":\"esp32flight\",\"manufacturer\":\"theqkash\","
+                 "\"model\":\"%s\"}}", model);
+        esp_mqtt_client_publish(s_client, SCR_CONFIG_TOPIC, payload, 0, 1, 1);
+        snprintf(payload, sizeof(payload),
+                 "{\"name\":\"Start screensaver\",\"icon\":\"mdi:radar\","
+                 "\"command_topic\":\"" SAVER_SET_TOPIC "\","
+                 "\"unique_id\":\"esp32flight_screensaver\","
+                 "\"device\":{\"identifiers\":[\"esp32flight\"],"
+                 "\"name\":\"esp32flight\",\"manufacturer\":\"theqkash\","
+                 "\"model\":\"%s\"}}", model);
+        esp_mqtt_client_publish(s_client, SAVER_CONFIG_TOPIC, payload, 0, 1, 1);
+        esp_mqtt_client_subscribe(s_client, SCR_SET_TOPIC, 0);
+        esp_mqtt_client_subscribe(s_client, SAVER_SET_TOPIC, 0);
+        s_scr_published = -1;   /* resend state after (re)connect */
+    }
 #endif
 }
 
 #ifndef APKFLIGHT
+static void publish_screen_state(void)
+{
+    int dark = ui_screen_dark() ? 1 : 0;
+    if (dark != s_scr_published) {
+        s_scr_published = dark;
+        esp_mqtt_client_publish(s_client, SCR_STATE_TOPIC, dark ? "OFF" : "ON", 0, 1, 1);
+    }
+}
+
+static bool topic_is(const char *topic, size_t tlen, const char *want)
+{
+    return tlen == strlen(want) && strncmp(topic, want, tlen) == 0;
+}
+
 static void handle_bl_command(const char *topic, size_t tlen,
                               const char *data, size_t dlen)
 {
+    if (topic_is(topic, tlen, SAVER_SET_TOPIC)) {
+        input_ctl_dispatch("screensaver");
+        return;
+    }
+    if (topic_is(topic, tlen, SCR_SET_TOPIC)) {
+        bool on = dlen >= 2 && strncmp(data, "ON", 2) == 0;
+        input_ctl_dispatch(on ? "screen_on" : "screen_off");
+        publish_screen_state();
+        return;
+    }
     if (!bl_entity_active()) {
         return;
     }
@@ -199,7 +257,14 @@ void mqtt_pub_start(void)
     }
     esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, mqtt_event, NULL);
     esp_mqtt_client_start(s_client);
-    ESP_LOGI(TAG, "connecting to %s", uri);
+    /* never print credentials (user:pass@) into a log people share (#35) */
+    const char *at = strchr(uri, '@');
+    const char *sch = strstr(uri, "://");
+    if (at != NULL && sch != NULL && sch < at) {
+        ESP_LOGI(TAG, "connecting to %.*s***@%s", (int)(sch + 3 - uri), uri, at + 1);
+    } else {
+        ESP_LOGI(TAG, "connecting to %s", uri);
+    }
 }
 
 void mqtt_pub_backlight_changed(void)
@@ -217,4 +282,7 @@ void mqtt_pub_state(const char *json)
         return;
     }
     esp_mqtt_client_publish(s_client, STATE_TOPIC, json, 0, 0, 0);
+#ifndef APKFLIGHT
+    publish_screen_state();   /* night schedule and taps change it too */
+#endif
 }

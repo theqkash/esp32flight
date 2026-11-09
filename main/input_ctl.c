@@ -133,7 +133,8 @@ static const char *k_actions =
     "next_view,prev_view,next_ac,prev_ac,zoom_in,zoom_out,wake,"
     "list_planes,list_ships,list_all,toggle_rain,follow_toggle,"
     "alt_min_up,alt_min_down,alt_max_up,alt_max_down,"
-    "brightness_up,brightness_down";
+    "brightness_up,brightness_down,screensaver,screen_off,screen_on,screen_toggle,"
+    "track_toggle";
 
 const char *input_ctl_actions(void)
 {
@@ -186,7 +187,9 @@ bool input_ctl_dispatch(const char *action)
     /* UI-owned actions run under the LVGL lock */
     static const char *k_ui[] = { "next_view", "prev_view", "next_ac", "prev_ac",
                                   "zoom_in", "zoom_out", "wake",
-                                  "list_planes", "list_ships", "list_all" };
+                                  "list_planes", "list_ships", "list_all",
+                                  "screensaver", "screen_off", "screen_on",
+                                  "screen_toggle" };
     for (size_t i = 0; i < sizeof(k_ui) / sizeof(k_ui[0]); i++) {
         if (strcmp(action, k_ui[i]) == 0) {
             bool ok = false;
@@ -204,6 +207,18 @@ bool input_ctl_dispatch(const char *action)
     if (strcmp(action, "toggle_rain") == 0) {
         c->rain_overlay = !c->rain_overlay;
         ui_toast(c->rain_overlay ? "Rain: on" : "Rain: off");
+        save_later();
+        return true;
+    }
+    if (strcmp(action, "track_toggle") == 0) {
+        if (c->track_id[0] == '\0') {
+            ui_toast("Set a flight to track first (web panel)");
+            return true;
+        }
+        c->track_on = !c->track_on;
+        char t[48];
+        snprintf(t, sizeof(t), c->track_on ? "Tracking %s" : "Tracking off", c->track_id);
+        ui_toast(t);
         save_later();
         return true;
     }

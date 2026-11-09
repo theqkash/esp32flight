@@ -64,6 +64,17 @@ typedef struct {
     double  fav_lat[3], fav_lon[3];
     bool    map_light;        /* lift dark map tiles for readability (#10) */
     bool    retro_map;        /* green map underlay on the retro scope */
+    /* 0.4.7 (app blob v6 reads a 0.4.6 file as the prefix up to fa_limit) */
+    uint16_t fa_limit;        /* AeroAPI calls per month, 0 = FA_DEFAULT_MONTHLY (#37) */
+    uint16_t fa_used;         /* calls made in fa_month, persisted on every call */
+    uint16_t fa_month;        /* UTC year*12+month the counter belongs to */
+    bool    pin_nearest;      /* detail view stays on the nearest aircraft (#44) */
+    bool    amb_sched;        /* screensaver only inside the window below (#43) */
+    int     amb_from_min;     /* minutes from midnight, local */
+    int     amb_to_min;
+    bool    local_merge;      /* local receiver plus internet aggregators */
+    char    track_id[12];     /* flight to follow anywhere: callsign, reg or hex */
+    bool    track_on;         /* track mode: the screen shows only that flight */
 } settings_t;
 
 /* Load from NVS (menuconfig values as first-boot defaults). Call once at
@@ -72,5 +83,9 @@ void settings_load(void);
 
 /* Persist current contents of settings_get() to NVS. */
 esp_err_t settings_save(void);
+
+/* Persist only the FlightAware usage counter (fa_used/fa_month); cheap
+ * enough to run on every billed call. */
+void settings_save_fa_usage(void);
 
 settings_t *settings_get(void);

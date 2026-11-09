@@ -8,6 +8,8 @@ typedef struct {
     float wind_kmh;
     int   wind_dir_deg;
     int   code;         /* WMO weather code */
+    int   utc_offset_s; /* home UTC offset incl. daylight saving, today */
+    bool  has_offset;
     bool  valid;
 } weather_t;
 

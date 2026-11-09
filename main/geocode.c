@@ -37,7 +37,8 @@ esp_err_t geocode_search(const char *query, geocode_result_t *results, int max, 
     char url[224];
     /* the catalogue matches native names only under the right language:
        "warszawa" with language=en finds just a district in Ohio */
-    const char *lang = settings_get()->lang == 1 ? "pl" : "en";
+    int li = settings_get()->lang;
+    const char *lang = li == 1 ? "pl" : li == 2 ? "hu" : "en";
     snprintf(url, sizeof(url),
              "https://geocoding-api.open-meteo.com/v1/search?name=%s&count=%d&language=%s&format=json",
              encoded, max, lang);
@@ -105,7 +106,7 @@ esp_err_t geocode_reverse(double lat, double lon, char *city, size_t city_len)
     snprintf(url, sizeof(url),
              "https://nominatim.openstreetmap.org/reverse"
              "?lat=%.4f&lon=%.4f&format=jsonv2&zoom=10&accept-language=%s",
-             lat, lon, settings_get()->lang == 1 ? "pl,en" : "en");
+             lat, lon, settings_get()->lang == 1 ? "pl,en" : settings_get()->lang == 2 ? "hu,en" : "en");
 
     char *buf = malloc(8 * 1024);
     if (buf == NULL) {

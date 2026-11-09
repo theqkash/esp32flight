@@ -3,6 +3,7 @@
  * path remap, so it lands in the app's private storage). */
 
 #include "settings.h"
+#include "faflight.h"
 
 #include <stddef.h>
 #include "flight_model.h"
@@ -12,7 +13,7 @@
 
 #define SETTINGS_PATH "/assets/settings.bin"
 #define SETTINGS_MAGIC 0x414B4631u   /* "AKF1" */
-#define SETTINGS_VER   5
+#define SETTINGS_VER   6
 
 static settings_t s_settings;
 
@@ -39,6 +40,9 @@ static void set_defaults(void)
     s_settings.show_classes = FCLS_ALL_MASK;
     s_settings.rain_overlay = false;
     s_settings.amb_style = 0;
+    s_settings.fa_limit = FA_DEFAULT_MONTHLY;
+    s_settings.amb_from_min = 22 * 60;
+    s_settings.amb_to_min = 7 * 60;
 }
 
 void settings_load(void)
@@ -55,6 +59,13 @@ void settings_load(void)
         settings_t tmp;
         if (ver == SETTINGS_VER && fread(&tmp, sizeof(tmp), 1, f) == 1) {
             s_settings = tmp;
+        } else if (ver == 5) {
+            /* v5 = 0.4.6 layout, a prefix up to the 0.4.7 fields. Earlier
+             * v5 files (0.4.5) have another size and keep the defaults. */
+            size_t v5 = offsetof(settings_t, fa_limit);
+            if (fread(&tmp, 1, sizeof(tmp), f) == v5) {
+                memcpy(&s_settings, &tmp, v5);
+            }
         } else if (ver == 4) {
             /* v4 predates map_light; the old struct is a prefix */
             size_t v4 = offsetof(settings_t, map_light);
@@ -101,4 +112,9 @@ esp_err_t settings_save(void)
     fwrite(&s_settings, sizeof(s_settings), 1, f);
     fclose(f);
     return ESP_OK;
+}
+
+void settings_save_fa_usage(void)
+{
+    settings_save();
 }

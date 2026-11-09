@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Read by the flight task: Android moved the app off screen. */
+volatile bool g_app_background;
+
 /* LVGL over SDL2: one window, RGB565 texture, mouse as the touch pad.
  * The same file works on macOS (desktop window) and Android (SDL activity
  * fullscreen; the window size request is ignored and content is scaled).
@@ -223,6 +226,13 @@ int app_port_run(int shot_after_ms, const char *shot_path)
                 continue;
             }
             switch (e.type) {
+            case SDL_APP_DIDENTERBACKGROUND:
+                g_app_background = true;
+                break;
+            case SDL_APP_WILLENTERFOREGROUND:
+            case SDL_APP_DIDENTERFOREGROUND:
+                g_app_background = false;
+                break;
             case SDL_QUIT:
                 running = false;
                 break;

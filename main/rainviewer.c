@@ -9,7 +9,10 @@
 
 static const char *TAG = "rain";
 
-#define FRAME_TTL_US (10LL * 60 * 1000 * 1000)
+/* Just under the 10-minute view refresh (#46): with a TTL equal to it, a
+ * frame list fetched a few seconds into one render was still "fresh" at
+ * the next, so the weather advanced only every other refresh. */
+#define FRAME_TTL_US (9LL * 60 * 1000 * 1000)
 
 static char    s_path[160];
 static int     s_generation;

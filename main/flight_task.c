@@ -65,7 +65,8 @@ static void set_status(const char *text)
 
 /* Session stats (also exposed on the web panel and the stats view) */
 static struct {
-    uint32_t hexes[1024];
+    uint32_t *seen;          /* open-addressed hex set in PSRAM, 0 = empty slot */
+    int      seen_cap;       /* power of two */
     int      unique;
     int      max_alt_ft;
     float    max_gs_kt;
@@ -127,20 +128,56 @@ static void count_airline(const aircraft_t *ac)
     }
 }
 
+/* Session set of seen aircraft. It used to be a fixed 1024-entry array:
+ * past that every later aircraft counted as already seen, so the unique
+ * counter froze (#39) and hourly stats, top airlines, the log and
+ * watchlist pushes silently stopped for the rest of the session. Now a
+ * hash set that doubles at 75 % load. Returns true for a first sighting. */
+static bool seen_insert(uint32_t key)
+{
+    if (s_stats.unique * 4 >= s_stats.seen_cap * 3) {
+        int ncap = s_stats.seen_cap ? s_stats.seen_cap * 2 : 2048;
+        uint32_t *t = heap_caps_calloc(ncap, sizeof(uint32_t), MALLOC_CAP_SPIRAM);
+        if (t != NULL) {
+            for (int i = 0; i < s_stats.seen_cap; i++) {
+                uint32_t k = s_stats.seen[i];
+                if (k != 0) {
+                    uint32_t j = (k * 2654435761u) & (uint32_t)(ncap - 1);
+                    while (t[j] != 0) {
+                        j = (j + 1) & (uint32_t)(ncap - 1);
+                    }
+                    t[j] = k;
+                }
+            }
+            free(s_stats.seen);
+            s_stats.seen = t;
+            s_stats.seen_cap = ncap;
+        } else if (s_stats.seen_cap == 0 || s_stats.unique >= s_stats.seen_cap - 1) {
+            return false;   /* no memory and no room: stop counting, never spin */
+        }
+    }
+    uint32_t mask = (uint32_t)(s_stats.seen_cap - 1);
+    uint32_t j = (key * 2654435761u) & mask;
+    while (s_stats.seen[j] != 0) {
+        if (s_stats.seen[j] == key) {
+            return false;
+        }
+        j = (j + 1) & mask;
+    }
+    s_stats.seen[j] = key;
+    s_stats.unique++;
+    return true;
+}
+
 static void stats_update(const aircraft_list_t *list)
 {
     for (int i = 0; i < list->count; i++) {
         const aircraft_t *ac = &list->ac[i];
-        uint32_t h = (uint32_t)strtoul(ac->hex[0] == '~' ? ac->hex + 1 : ac->hex, NULL, 16);
-        bool known = false;
-        for (int k = 0; k < s_stats.unique; k++) {
-            if (s_stats.hexes[k] == h) {
-                known = true;
-                break;
-            }
-        }
-        if (!known && s_stats.unique < 1024) {
-            s_stats.hexes[s_stats.unique++] = h;
+        bool tisb = ac->hex[0] == '~';
+        uint32_t h = (uint32_t)strtoul(tisb ? ac->hex + 1 : ac->hex, NULL, 16) & 0xFFFFFFu;
+        /* top bit keeps 0 free as "empty"; non-ICAO (~) addresses apart */
+        uint32_t key = h | 0x80000000u | (tisb ? 0x01000000u : 0);
+        if (seen_insert(key)) {
 
             /* first sighting this session */
             time_t now = time(NULL);
@@ -166,7 +203,12 @@ static void stats_update(const aircraft_list_t *list)
         if (ac->alt_baro_ft > s_stats.max_alt_ft) {
             s_stats.max_alt_ft = ac->alt_baro_ft;
         }
-        if (ac->gs_kts > s_stats.max_gs_kt) {
+        /* Fastest record (#47): MLAT/TIS-B positions jump now and then and
+         * the aggregators derive ground speed from them, giving 1000+ kt
+         * airliners. A subsonic airliner tops out near 700 kt even in the
+         * jet stream; only military traffic may go beyond 760 kt. */
+        float gs_cap = ac->military ? 1500.0f : 760.0f;
+        if (ac->gs_kts <= gs_cap && ac->gs_kts > s_stats.max_gs_kt) {
             s_stats.max_gs_kt = ac->gs_kts;
         }
         float dkm = ac->dist_nm >= 0 ? ac->dist_nm * 1.852f : 0;
@@ -620,6 +662,13 @@ static void flight_task(void *arg)
     while (true) {
         int64_t tick_ms = esp_timer_get_time() / 1000;
 #ifdef APKFLIGHT
+        /* App in the background: no network at all until it is back on
+         * screen (no traffic, no billed lookups, no battery drain). */
+        extern volatile bool g_app_background;
+        if (g_app_background) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
         if (apk_settings_gen() != cfg_gen) {
             cfg_gen = apk_settings_gen();
             double nlat = lat, nlon = lon;
@@ -653,6 +702,33 @@ static void flight_task(void *arg)
         /* Aircraft first: everything else (weather, layers, update check)
          * runs after the fetch + render, so it can never delay positions. */
         esp_err_t err = flight_fetch_nearby(lat, lon, radius_nm, list);
+        /* Track mode (one flight anywhere, e.g. family on board): when it
+         * is in the air the screen shows only that flight, otherwise the
+         * normal sky with a note in the header. A miss is re-asked once a
+         * minute, not every cycle. */
+        static int64_t s_track_next_ms;
+        static bool s_track_found;
+        bool tracking = false;
+        {
+            const settings_t *tc = settings_get();
+            if (tc->track_on && tc->track_id[0] != '\0') {
+                if (tick_ms >= s_track_next_ms || s_track_found) {
+                    aircraft_t tac;
+                    s_track_found = flight_fetch_track(tc->track_id, lat, lon, &tac) == ESP_OK;
+                    if (s_track_found) {
+                        list->ac[0] = tac;
+                        list->count = 1;
+                        err = ESP_OK;
+                    } else {
+                        s_track_next_ms = tick_ms + 60000;
+                    }
+                }
+                tracking = s_track_found;
+            } else {
+                s_track_found = false;
+                s_track_next_ms = 0;
+            }
+        }
         fetch_attempts++;
         if (!primed && (err == ESP_OK || fetch_attempts >= 3)) {
             primed = true;   /* don't starve weather forever on a bad link */
@@ -662,8 +738,8 @@ static void flight_task(void *arg)
             consecutive_failures = 0;
 
             const settings_t *cfg = settings_get();
-            if (cfg->hide_ground ||
-                (cfg->show_classes & FCLS_ALL_MASK) != FCLS_ALL_MASK) {
+            if (!tracking && (cfg->hide_ground ||
+                (cfg->show_classes & FCLS_ALL_MASK) != FCLS_ALL_MASK)) {
                 int w = 0;
                 for (int i = 0; i < list->count; i++) {
                     const aircraft_t *ac = &list->ac[i];
@@ -683,7 +759,7 @@ static void flight_task(void *arg)
              * judges from cached routes only, so it costs nothing; routes
              * fetched later this cycle take effect next cycle. */
             const char *fapt0 = settings_get()->filter_airport;
-            if (fapt0[0] != '\0') {
+            if (fapt0[0] != '\0' && !tracking) {
                 int w = 0;
                 bool excl = settings_get()->filter_apt_exclude;
                 for (int i = 0; i < list->count; i++) {
@@ -764,24 +840,42 @@ static void flight_task(void *arg)
                 }
             }
 
-            /* Commercial flight numbers, when a FlightAware key is set */
-            if (settings_get()->fa_key[0] != '\0') {
-                int fa_done = 0;
-                for (int i = 0; i < top; i++) {
-                    if (flight_is_airline(&list->ac[i]) &&
-                        faflight_get_cached(list->ac[i].callsign) == NULL) {
-                        faflight_fetch(list->ac[i].callsign);
-                        if (++fa_done >= 2) {
-                            break;  /* two lookups per cycle */
+            /* Commercial flight numbers, when a FlightAware key is set.
+             * Every AeroAPI call is billed (#37): at most one per cycle,
+             * only for the aircraft the user is looking at or one of the
+             * three nearest airliners, never while the screen is dark,
+             * and only inside the monthly budget faflight paces. */
+            if (faflight_can_fetch() && !ui_screen_dark()) {
+                char selhex[ICAO_HEX_LEN];
+                ui_selected_hex(selhex, sizeof(selhex));
+                int pick = -1;
+                for (int i = 0; i < list->count && selhex[0]; i++) {
+                    if (strcmp(list->ac[i].hex, selhex) == 0) {
+                        if (flight_is_airline(&list->ac[i]) &&
+                            faflight_get_cached(list->ac[i].callsign) == NULL) {
+                            pick = i;
                         }
+                        break;
                     }
+                }
+                for (int i = 0, n = 0; pick < 0 && i < list->count && n < 3; i++) {
+                    if (!flight_is_airline(&list->ac[i])) {
+                        continue;
+                    }
+                    n++;
+                    if (faflight_get_cached(list->ac[i].callsign) == NULL) {
+                        pick = i;
+                    }
+                }
+                if (pick >= 0) {
+                    faflight_fetch(list->ac[pick].callsign);
                 }
             }
 
             /* airport filter runs after the route lookups above, because it
              * can only judge flights whose route is already known */
             const char *fapt = settings_get()->filter_airport;
-            if (fapt[0] != '\0') {
+            if (fapt[0] != '\0' && !tracking) {
                 int w = 0;
                 bool excl = settings_get()->filter_apt_exclude;
                 for (int i = 0; i < list->count; i++) {
@@ -811,6 +905,12 @@ static void flight_task(void *arg)
                 snprintf(status, sizeof(status), LV_SYMBOL_WARNING " %s squawk %s!",
                          emergency->callsign[0] ? emergency->callsign : emergency->hex,
                          emergency->squawk);
+            } else if (tracking) {
+                snprintf(status, sizeof(status), L()->track_fmt,
+                         settings_get()->track_id, (int)(list->ac[0].dist_nm * 1.852f));
+            } else if (settings_get()->track_on && settings_get()->track_id[0]) {
+                snprintf(status, sizeof(status), L()->track_wait_fmt,
+                         settings_get()->track_id, list->count);
             } else {
                 snprintf(status, sizeof(status), L()->status_fmt,
                          city[0] ? city : "home", list->count,
@@ -828,19 +928,26 @@ static void flight_task(void *arg)
                 publish_web_state(list, &wx, lat, lon, city, radius_nm);
             }
 
-            /* Home Assistant state */
-            char mq[192];
+            /* Home Assistant state. FlightAware usage rides along so the
+             * monthly calls and their estimated cost show up as sensors. */
+            char mq[256];
+            int fa_used, fa_limit;
+            faflight_usage(&fa_used, &fa_limit);
             if (list->count > 0) {
                 const aircraft_t *n0 = &list->ac[0];
                 snprintf(mq, sizeof(mq),
                          "{\"nearest\":\"%s\",\"nearest_km\":%.1f,"
-                         "\"count\":%d,\"unique\":%d}",
+                         "\"count\":%d,\"unique\":%d,"
+                         "\"fa_calls\":%d,\"fa_cost\":%.2f}",
                          n0->callsign[0] ? n0->callsign : n0->hex,
-                         n0->dist_nm * 1.852, list->count, s_stats.unique);
+                         n0->dist_nm * 1.852, list->count, s_stats.unique,
+                         fa_used, fa_used * FA_COST_PER_CALL);
             } else {
                 snprintf(mq, sizeof(mq),
                          "{\"nearest\":\"none\",\"nearest_km\":0,"
-                         "\"count\":0,\"unique\":%d}", s_stats.unique);
+                         "\"count\":0,\"unique\":%d,"
+                         "\"fa_calls\":%d,\"fa_cost\":%.2f}", s_stats.unique,
+                         fa_used, fa_used * FA_COST_PER_CALL);
             }
             mqtt_pub_state(mq);
         } else {
@@ -862,6 +969,15 @@ static void flight_task(void *arg)
         int64_t now_ms = esp_timer_get_time() / 1000;
         if (primed && (last_weather_ms < 0 || now_ms - last_weather_ms > 15 * 60 * 1000)) {
             if (weather_fetch(lat, lon, &wx) == ESP_OK) {
+                /* Daylight saving: the home offset was only looked up at
+                 * boot, so the clock stayed an hour off after the change
+                 * until a restart. The weather answer carries today's
+                 * offset; follow it within 15 min. */
+                if (wx.has_offset &&
+                    (!tz_home_known() || wx.utc_offset_s != tz_home_offset())) {
+                    ESP_LOGI(TAG, "home UTC offset now %d s", wx.utc_offset_s);
+                    tz_set_home_offset(wx.utc_offset_s);
+                }
                 char wbuf[96];
                 bool fahr = settings_get()->temp_f;
                 float temp = fahr ? wx.temp_c * 9.0f / 5.0f + 32.0f : wx.temp_c;

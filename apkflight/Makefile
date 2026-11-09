@@ -27,7 +27,7 @@ endif
 LVGL_SRC := $(shell find $(LVGL)/src -name '*.c')
 
 # Device-only modules replaced by platform/ or shim/ equivalents
-CORE_EXCLUDE := main.c lvgl_port.c waveshare_rgb_lcd_port.c tab5_lcd_port.c wifi_mgr.c \
+CORE_EXCLUDE := main.c lvgl_port.c waveshare_rgb_lcd_port.c tab5_lcd_port.c jc10_lcd_port.c elecrow10_lcd_port.c wifi_mgr.c \
                 mqtt_pub.c settings.c http_util.c
 CORE_SRC := $(filter-out $(addprefix $(ESPF)/main/, $(CORE_EXCLUDE)), \
                          $(wildcard $(ESPF)/main/*.c))

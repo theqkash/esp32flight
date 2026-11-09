@@ -95,7 +95,7 @@ const char *metar_decoded(char *out, size_t n)
 {
     out[0] = '\0';
     const settings_t *cfg = settings_get();
-    int pl = cfg->lang == 1;
+    int pl = cfg->lang;   /* language index for lang_metar_wx */
     size_t o = 0;
     char tok[24];
     const char *c = s_metar;

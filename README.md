@@ -22,8 +22,8 @@
 
 ---
 
-> [!WARNING]
-> **FlightAware integration: known issue.** A bug in the current firmware makes the optional FlightAware AeroAPI integration burn through API credits far faster than intended. **Leave the FlightAware key empty for now** - the fix ships with the next esp32flight update in the second half of October 2026. Everything else works without it; the integration is optional.
+> [!NOTE]
+> **FlightAware users:** firmware before 0.4.7 could burn through AeroAPI credits very quickly (#37). 0.4.7 puts every FlightAware call under a monthly budget you set (900 by default, inside the free Personal credit), shows the calls and an estimated cost in the web panel and Home Assistant, and only looks up the flight you are watching. Update before you put a key back in.
 
 
 | | |
@@ -57,22 +57,24 @@ No board at hand? The same radar also ships as an [Android app](#android-app).
 - Full-screen route map with the great-circle track, swipe pan and zoom, flight trails
 - Map screensaver after idle: your observation circle, every aircraft in range, clock and weather; tap a plane for its route
 - Aircraft class filter: pick any mix of airliners, light aircraft, helicopters, military and others; the class colors the type code in the list
-- Night mode, 7 color themes, English and Polish UI, 24 h or 12 h AM/PM clock, all settings on the touchscreen; auto-cycling can be turned off to follow one flight
+- Night mode, 7 color themes, English, Polish and Hungarian UI, 24 h or 12 h AM/PM clock, all settings on the touchscreen; auto-cycling can be turned off to follow one flight, or the details can stay on the nearest aircraft
+- **Track a flight**: enter a callsign or registration (in the web panel or on the device) and the screen follows that one flight anywhere in the world, e.g. family on board; stop it and your own sky is back
+- Screensaver on a schedule or on demand (tap the clock), retro radar with your map under the sweep
 - Optional route on the list and radar: origin/destination codes on list rows, cities in the tapped-aircraft bubble
 - Optional backlight brightness control on boards that can dim (slider, off by default), and a choice of map tile providers: OpenStreetMap with a built-in dark style, CARTO with your own free key, or any custom {z}/{x}/{y} tile server
 
 **Data**
 
-- Free community ADS-B sources (airplanes.live, adsb.lol, adsb.fi) with automatic failover, refresh every 8 s
-- Or your own **dump1090/readsb receiver** on the LAN, with internet fallback
+- Free community ADS-B sources (adsb.lol, adsb.fi) merged live with automatic failover, refresh every 8 s; a source that refuses access is parked instead of asked every cycle
+- Or your own **dump1090/readsb receiver** on the LAN, alone or **together with the internet sources** (the antenna wins where both see an aircraft), with internet fallback; bare host names are tried as `name.local`
 - Routes cross-checked against the aircraft's real position across three databases, so stale entries are rejected, not displayed
-- Optional free FlightAware key adds ticket-style flight numbers (FR4238) and live routes - **currently not recommended, see the warning at the top** (credit-burn bug, fix due second half of October 2026)
+- Optional FlightAware key adds ticket-style flight numbers (FR4238) and live routes for the aircraft you are looking at, under a monthly call budget with usage and cost on display
 
 **Alerts and integrations**
 
 - Push to your phone via [ntfy.sh](https://ntfy.sh): emergency squawks, watchlist aircraft, incoming flyovers
 - Watchlist with gold highlighting; military and notable heavies (A380, AN-124, C-17...) always stand out
-- MQTT with Home Assistant auto-discovery (aircraft sensors, plus the screen backlight as a dimmable HA light on boards with brightness control enabled), generic JSON webhooks, alert history on flash
+- MQTT with Home Assistant auto-discovery (aircraft sensors, FlightAware calls and cost this month, a screen on/off switch, a screensaver button, plus the backlight as a dimmable HA light on boards with brightness control enabled), generic JSON webhooks, alert history on flash
 - **Physical controls**: buttons and rotary encoders on a cheap PCF8574/MCP23017 I2C expander (or free GPIOs where a board has them) mapped to actions like view switching, radar zoom, altitude limits or brightness - configured in the web panel with a learn mode; custom decks can drive the same actions over HTTP (`/api/input`)
 
 **Web panel** at `http://esp32flight.local`
@@ -110,16 +112,22 @@ You will get a push for emergency squawks (7500/7600/7700), watchlist aircraft e
 <details>
 <summary><b>Home Assistant / MQTT</b></summary>
 
-Enter your broker URI as **MQTT broker**, e.g. `mqtt://user:password@192.168.1.10:1883`. The device announces itself via MQTT discovery, so an "esp32flight" device appears in Home Assistant automatically with sensors: nearest aircraft (callsign, route, distance), aircraft count and session unique count. No YAML needed.
+Enter your broker URI as **MQTT broker**, e.g. `mqtt://user:password@192.168.1.10:1883`. The device announces itself via MQTT discovery, so an "esp32flight" device appears in Home Assistant automatically with sensors: nearest aircraft (callsign, route, distance), aircraft count and session unique count, FlightAware calls and estimated cost this month, plus a **Screen** switch (backlight off/on, stays off until a tap or "on") and a **Start screensaver** button for automations. No YAML needed.
 </details>
 
 <details>
 <summary><b>FlightAware flight numbers and routes</b></summary>
 
 > [!WARNING]
-> **Hold off on this one until the second half of October 2026.** The current firmware has a bug that makes the FlightAware integration consume API credits very quickly - a free Personal key can be exhausted in a short time. The fix is coming in the next update; until then keep the key field empty.
+> **FlightAware bills every call, and a Personal account has no spending cap of its own.** Use firmware 0.4.7 or newer: older versions could exhaust the free credit within days (#37).
 
-By default flights show radio callsigns (`RYR638T`). A free FlightAware AeroAPI key adds the commercial flight number (`FR4238`) next to it and uses the live origin/destination as an extra route source. FlightAware serves actual flight plans, so with a key set the routes become authoritative - the stale shuttle-route entries that community databases sometimes serve stop mattering. Create a **Personal** key at [flightaware.com/aeroapi](https://www.flightaware.com/commercial/aeroapi/) and paste it into **FlightAware API key**. Results are cached, so the free monthly credit is more than enough.
+By default flights show radio callsigns (`RYR638T`). A FlightAware AeroAPI key adds the commercial flight number (`FR4238`) next to it and uses the live origin/destination as an extra route source. Create a **Personal** key at [flightaware.com/aeroapi](https://www.flightaware.com/commercial/aeroapi/) and paste it into **FlightAware API key**.
+
+How 0.4.7 keeps the bill in check:
+
+- Only the aircraft you are looking at (the selected one, or one of the three nearest airliners) is ever looked up, one call per minute at most, never while the screen is dark or the app is in the background.
+- **FlightAware calls per month** (web panel, default 900) is a hard budget, persisted across restarts and spread evenly over the month. 900 calls stay inside the free Personal credit at the list price of about $0.005 per call.
+- The panel shows the calls made this month and the estimated cost; Home Assistant gets both as sensors.
 </details>
 
 <details>
@@ -153,7 +161,8 @@ Everything the panel shows is plain HTTP on port 80. The full reference with exa
 | `GET /api/alerts` | alert history TSV (epoch, title, message) |
 | `GET /screen.bmp` | live 800x480 screenshot of the display |
 | `GET /metrics` | Prometheus metrics (aircraft, session records, heap) |
-| `GET/POST /api/input` | run a named action (`?action=zoom_in`, `next_view`, `wake`...) - for buttons, decks, automations |
+| `GET/POST /api/input` | run a named action (`?action=zoom_in`, `next_view`, `wake`, `screensaver`, `screen_off`, `screen_on`, `track_toggle`...) - for buttons, decks, automations |
+| `GET/POST /api/track` | track one flight anywhere: `{"id":"LOT3AB","on":true}`, applied without a restart |
 | `GET /api/input/last` | last physical input event, used by the panel's learn mode |
 | `POST /ota` | firmware update (403 unless unlocked on the device) |
 
@@ -163,7 +172,7 @@ With a panel password set, every endpoint requires Basic Auth: `curl -u admin:PA
 
 | What | Source |
 |---|---|
-| Aircraft positions (ADS-B) | [airplanes.live](https://airplanes.live), fallbacks [adsb.lol](https://adsb.lol) and [adsb.fi](https://adsb.fi) |
+| Aircraft positions (ADS-B) | [adsb.lol](https://adsb.lol) and [adsb.fi](https://adsb.fi) (personal, non-commercial use) merged; [airplanes.live](https://airplanes.live) closed its public API in 2026 and is only tried occasionally |
 | Routes + airlines | [adsbdb.com](https://www.adsbdb.com), [adsb.lol routeset](https://api.adsb.lol/docs), [hexdb.io](https://hexdb.io) |
 | Map tiles | [OpenStreetMap](https://www.openstreetmap.org/copyright) standard tiles ((c) OpenStreetMap contributors); the dark style is applied on-device |
 | Precipitation radar (optional overlay) | [RainViewer](https://www.rainviewer.com/api.html) |
@@ -174,21 +183,21 @@ With a panel password set, every endpoint requires Basic Auth: `curl -u admin:PA
 | Ships (AIS, optional, own free key) | [aisstream.io](https://aisstream.io) |
 | Airspace outlines (optional, own free key) | [openAIP](https://www.openaip.net) |
 | IP geolocation | [ip-api.com](https://ip-api.com) |
-| Aircraft photos | [planespotters.net](https://www.planespotters.net) via adsbdb |
+| Aircraft photos | [planespotters.net](https://www.planespotters.net) (photographer credited on screen), fallback airport-data.com via adsbdb |
 | Airline logos | [sexym0nk3y/airline-logos](https://github.com/sexym0nk3y/airline-logos), [Jxck-S/airline-logos](https://github.com/Jxck-S/airline-logos), served on demand from [esp32flight-logos](https://github.com/theqkash/esp32flight-logos) |
 | Country flags | [flagcdn.com](https://flagpedia.net) (bundled) |
 | Airports + runways | [OurAirports](https://ourairports.com) (bundled, public domain) |
 | Offline world map | NASA Blue Marble |
 
-Optional, with a user-provided free key: [FlightAware AeroAPI](https://www.flightaware.com/commercial/aeroapi/) for commercial flight numbers and live routes (currently not recommended - credit-burn bug, fix due second half of October 2026).
+Optional, with your own key: [FlightAware AeroAPI](https://www.flightaware.com/commercial/aeroapi/) for commercial flight numbers and live routes, billed per call by FlightAware and kept under the monthly budget described above.
 
 ## Hardware
 
-Thirteen supported configurations, all running the same code. The Waveshare 800x480 family and the Guition share one auto-detecting binary; the rest are dedicated builds, every one of them a button on [the flasher](https://theqkash.github.io/esp32flight/) (the newest ports start on [the test-builds page](https://theqkash.github.io/esp32flight/beta.html) until the next release):
+Fourteen supported configurations, all running the same code. The Waveshare 800x480 family and the Guition share one auto-detecting binary; the rest are dedicated builds, every one of them a button on [the flasher](https://theqkash.github.io/esp32flight/) (the newest ports start on [the test-builds page](https://theqkash.github.io/esp32flight/beta.html) until the next release):
 
 - **Waveshare ESP32-S3-Touch-LCD-7** (7", the original target, ~$35): ESP32-S3, 16 MB flash, 8 MB PSRAM, 800x480 RGB (ST7262), GT911 touch. Printable case: [on Printables](https://www.printables.com/model/1425850-waveshare-esp32-s3-7inch-capacitive-touch-display).
 - **Waveshare ESP32-S3-Touch-LCD-4.3 / 4.3B / 5**: same pinout as the 7. Note: 4.3 units ship an 8 MB module (N8R8) - use the `-8mb` build (curated logo set, the rest fetched on demand from [esp32flight-logos](https://github.com/theqkash/esp32flight-logos)).
-- **Waveshare ESP32-S3-Touch-LCD-7B** (7", 1024x600, ~$40): the sharpest panel, real brightness PWM via its helper MCU. Runs the memory buses at 120 MHz - the panel demands it.
+- **Waveshare ESP32-S3-Touch-LCD-7B** (7", 1024x600, ~$40): the sharpest panel, real brightness PWM via its helper MCU, large type on the detail view. Runs the memory buses at 120 MHz - the panel demands it. The Printables case for the 7 fits the 7B as well.
 - **Waveshare ESP32-S3-Touch-LCD-7C / 7C BOX** (7", 800x480, ~$70): the boxed one - enclosure, battery, speakers, isolated IO. Audio hardware not used by the radar yet.
 - **Guition JC8048W550** (5", ~$15): the budget pick, hardware-proven since 0.3.x.
 - **Sunton ESP32-4827S043** (4.3", 480x272, ~$15): capacitive "C" and resistive "R" variants, each with its own build; the UI renders proportionally downscaled. Community-contributed.
@@ -198,6 +207,7 @@ Thirteen supported configurations, all running the same code. The Waveshare 800x
 - **BigTreeTech Panda Touch** (5", 800x480, ~$75): BTT's Bambu pendant is a regular ESP32-S3 display underneath. Flashing replaces the stock Bambu-remote firmware (restorable from a backup), and the battery makes it a portable radar.
 - **M5Stack Tab5** (5", 1280x720, ~$60): ESP32-P4 with Wi-Fi over its ESP32-C6, battery, the crispest screen of the fleet. All three display generations (ILI9881C, ST7123, ST7121) are auto-detected.
 - **Guition JC8012P4A1** (10.1", 800x1280, ESP32-P4, ~$40): the biggest screen of the fleet, Wi-Fi over its ESP32-C6, clean-room GSL3680 touch driver. Panel revision V1 hardware-confirmed; V2 (rear-case batch 2628+) has its own build awaiting a tester.
+- **Elecrow CrowPanel Advanced 10.1 ESP32-P4** (10.1", 1024x600): new in 0.4.7 on [the test-builds page](https://theqkash.github.io/esp32flight/beta.html), built from Elecrow's schematic and examples, awaiting its first hardware report (board revisions V1.1 and V1.2).
 
 ## Building from source
 

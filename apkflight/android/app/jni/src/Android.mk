@@ -52,7 +52,7 @@ include $(PREBUILT_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE := main
 
-CORE_EXCLUDE := main.c lvgl_port.c waveshare_rgb_lcd_port.c tab5_lcd_port.c jc10_lcd_port.c wifi_mgr.c \
+CORE_EXCLUDE := main.c lvgl_port.c waveshare_rgb_lcd_port.c tab5_lcd_port.c jc10_lcd_port.c elecrow10_lcd_port.c wifi_mgr.c \
                 mqtt_pub.c settings.c http_util.c
 
 LVGL_SRC := $(shell find $(LVGL)/src -name '*.c')
