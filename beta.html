@@ -70,44 +70,41 @@ footer{margin-top:60px;border-top:1px solid var(--border);padding:26px 0;color:v
 
 
 <div class="campaign">
-  <h2>Waveshare 7B: fix for the 0.4.6 screen shake / screensaver crash</h2>
-  <p class="meta">2026-09-03 &middot; board: Waveshare ESP32-S3-Touch-LCD-7B (1024x600) &middot; base: 0.4.7 (= 0.4.6 + the fix)</p>
-  <p>0.4.6 switched the basemap to OpenStreetMap tiles, which take several times longer to
-  decode than the old CARTO ones. A full-screen map render (the screensaver above all) decoded
-  every tile back to back and starved the watchdog - shaking on 800x480 boards, a crash on the
-  7B where the render pass is longest. <b>Round 2</b> adds the second half of the fix: tiles now
-  decode in their native palette format (a quarter of the memory, measurably faster), which also
-  cures missing map blocks on the route view. Verified clean on an 800x480 board; the 7B is the
-  board that needs the confirmation.</p>
+  <h2>Elecrow CrowPanel Advanced 10.1 ESP32-P4 (issue #54)</h2>
+  <p class="meta">2026-11-10 &middot; board: Elecrow CrowPanel Advanced 10.1&Prime; ESP32-P4 HMI (1024x600 EK79007 MIPI-DSI, GT911 touch, ESP32-C6 Wi-Fi) &middot; base: 0.4.7</p>
+  <p>A new port built from Elecrow's schematic and their V1.2 example code, not yet seen on real
+  hardware. It covers board revisions <b>V1.1 and V1.2</b>; V1.0 boards wire the Wi-Fi chip
+  differently and will not connect. Expect the first round to need fixes - the log tells us which.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-7b-047r2.json"></esp-web-install-button>
-    <span class="dim"><b>Waveshare 7B</b> (0.4.7-7b) - update install: leave <i>Erase device</i> unchecked, settings survive</span>
+    <esp-web-install-button manifest="manifest-test-elecrow10-047.json"></esp-web-install-button>
+    <span class="dim"><b>CrowPanel Advanced 10.1 P4</b> (0.4.7-elecrow10) - first install: check <i>Erase device</i></span>
   </div>
-  <p>OTA alternative: <a href="firmware/test/7b-047r2/esp32flight-0.4.7-7b-ota.bin">esp32flight-0.4.7-7b-ota.bin</a>
-  through the web panel. Command line: <a href="firmware/test/7b-047r2/esp32flight-0.4.7-7b-full.bin">merged image</a>,
-  <code>esptool.py --chip esp32s3 --port PORT write_flash 0x0 esp32flight-0.4.7-7b-full.bin</code>.</p>
+  <p>Command line: <a href="firmware/test/elecrow10-047/esp32flight-0.4.7-elecrow10-full.bin">merged image</a>, then
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.7-elecrow10-full.bin</code>
+  (back up the stock firmware first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>
-    <li>Does the screensaver map load without the crash and without shaking?</li>
-    <li>Let it sit through a few screensaver cycles - was every one clean?</li>
-    <li>Which version you came from (0.4.5b or 0.4.6).</li>
+    <li>Your board revision (V1.1 or V1.2, printed on the back).</li>
+    <li>Does the picture come up, and is it the right way round with clean colors?</li>
+    <li>Does touch land under your finger in all four corners?</li>
+    <li>Does Wi-Fi connect? If not, the serial log from the USB port at 115200 baud.</li>
   </ul>
 </div>
 
 <div class="campaign">
   <h2>Guition JC8012P4A1: panel revision V2 (batch 2628+)</h2>
-  <p class="meta">2026-09-03 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.7</p>
+  <p class="meta">2026-11-10 &middot; board: Guition JC8012P4A1 (ESP32-P4 + ESP32-C6, 10.1&Prime; 800x1280 JD9365 MIPI-DSI, GSL3680 touch) &middot; base: 0.4.7</p>
   <p>Panel revision <b>V1 is confirmed working and lives on the <a href="index.html">stable
   flasher</a> now</b>. The V2 glass (rear-case batch number 2628 and higher) uses different
   MIPI timings and its own init table, and no V2 owner has reported back yet. This build
   carries everything the V1 saga fixed (factory touch firmware table, bring-up retries, sensor
   grid scaling) on the V2 display path.</p>
   <div class="btnrow">
-    <esp-web-install-button manifest="manifest-test-jc10v2-047r2.json"></esp-web-install-button>
+    <esp-web-install-button manifest="manifest-test-jc10v2-047f.json"></esp-web-install-button>
     <span class="dim"><b>Panel V2</b> (0.4.7-jc10-v2) - first install: check <i>Erase device</i></span>
   </div>
-  <p>Command line: <a href="firmware/test/jc10v2-047r2/esp32flight-0.4.7-jc10-v2-full.bin">merged image</a>, then
-  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.7-jc10-v2-full.bin</code>
+  <p>Command line: <a href="firmware/test/jc10v2-047f/esp32flight-0.4.7-jc10v2-full.bin">merged image</a>, then
+  <code>esptool.py --chip esp32p4 --port PORT write_flash 0x0 esp32flight-0.4.7-jc10v2-full.bin</code>
   (back up first: <code>read_flash 0 0x1000000 stock-backup.bin</code>).</p>
   <p>When reporting, include:</p>
   <ul>

@@ -7,19 +7,19 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/0.4.7/crowpanel70/bootloader.bin",
+          "path": "firmware/0.4.7f/crowpanel70/bootloader.bin",
           "offset": 0
         },
         {
-          "path": "firmware/0.4.7/crowpanel70/partition-table.bin",
+          "path": "firmware/0.4.7f/crowpanel70/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.7/crowpanel70/esp32flight.bin",
+          "path": "firmware/0.4.7f/crowpanel70/esp32flight.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.7/crowpanel70/assets.bin",
+          "path": "firmware/0.4.7f/crowpanel70/assets.bin",
           "offset": 2424832
         }
       ]

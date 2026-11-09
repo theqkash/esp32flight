@@ -7,23 +7,23 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/0.4.7/pandatouch/bootloader.bin",
+          "path": "firmware/0.4.7f/pandatouch/bootloader.bin",
           "offset": 0
         },
         {
-          "path": "firmware/0.4.7/pandatouch/partition-table.bin",
+          "path": "firmware/0.4.7f/pandatouch/partition-table.bin",
           "offset": 32768
         },
         {
-          "path": "firmware/0.4.7/pandatouch/ota_data_initial.bin",
+          "path": "firmware/0.4.7f/pandatouch/ota_data_initial.bin",
           "offset": 65536
         },
         {
-          "path": "firmware/0.4.7/pandatouch/esp32flight.bin",
+          "path": "firmware/0.4.7f/pandatouch/esp32flight.bin",
           "offset": 131072
         },
         {
-          "path": "firmware/0.4.7/pandatouch/assets.bin",
+          "path": "firmware/0.4.7f/pandatouch/assets.bin",
           "offset": 5373952
         }
       ]

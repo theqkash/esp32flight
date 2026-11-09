@@ -157,10 +157,10 @@ footer a:hover{color:var(--accent)}
 </div>
 
 <div class="relband"><div class="wrap">
-  <span class="tag">NEW &middot; 0.4.6</span>
-  <span>The Cockpit update: physical buttons and encoders, a brightness slider with a Home Assistant
-  light, your choice of map tiles, optional routes, AM/PM clock and two boards graduating from beta.</span>
-  <a href="https://github.com/theqkash/esp32flight/releases/tag/v0.4.6">Release notes &rarr;</a>
+  <span class="tag">NEW &middot; 0.4.7</span>
+  <span>Track a flight anywhere, FlightAware under a monthly budget, local receiver plus internet,
+  Hungarian, a new web panel and a long list of fixes from your reports.</span>
+  <a href="https://github.com/theqkash/esp32flight/releases/tag/v0.4.7">Release notes &rarr;</a>
 </div></div>
 
 <div class="strip"><div class="wrap">
@@ -235,10 +235,10 @@ footer a:hover{color:var(--accent)}
   firmware, airline logos, maps, airport database - is written in one go. Chrome or Edge on desktop
   required (Web Serial).</p>
   <div class="warnbox">
-    <b>&#9888; FlightAware integration: known issue.</b> A bug in the current firmware makes the optional
-    FlightAware AeroAPI integration burn through API credits far faster than intended. <b>Leave the
-    FlightAware key empty for now</b> - the fix ships with the next esp32flight update in the second half
-    of October 2026. Everything else works without it.
+    <b>FlightAware users:</b> firmware before 0.4.7 could use up AeroAPI credits very quickly.
+    0.4.7 keeps every FlightAware call under a monthly budget you set (900 by default, inside the
+    free Personal credit) and shows the calls and estimated cost in the web panel. Update before
+    you put a key back in.
   </div>
   <div class="flash">
     <div class="btnrow">
@@ -300,7 +300,7 @@ footer a:hover{color:var(--accent)}
     breaks - the screen just stays black; flash the other one.</p>
     <p class="dim" style="margin-top:14px"><b>Updating?</b> Leave <i>Erase device</i> unchecked and your
     Wi-Fi and settings survive. Check it only for a first install.</p>
-    <p class="dim" style="margin-top:6px">Android instead? Grab <code>esp32flight-v0.4.6.apk</code> from the
+    <p class="dim" style="margin-top:6px">Android instead? Grab <code>esp32flight-v0.4.7.apk</code> from the
     <a href="https://github.com/theqkash/esp32flight/releases/latest">latest release</a>. After the first
     flash, updates go over the air from the device's web panel.</p>
   </div>
