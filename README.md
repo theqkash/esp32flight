@@ -79,7 +79,8 @@ No board at hand? The same radar also ships as an [Android app](#android-app).
 
 **Web panel** at `http://esp32flight.local`
 
-- Tabs: Live (Leaflet map with trails and flags, flight table), History (spotting log with CSV export, alert history), Settings (full config with per-field help), API (built-in reference)
+- Tabs: Live (track-a-flight card, Leaflet map with trails and flags, flight table), History (spotting log with CSV export, alert history), Settings (full config with per-field help, FlightAware usage and cost), API (built-in reference)
+- Follows your system light or dark mode, works on a phone
 - OTA firmware updates from the browser, locked by default and armed from the device
 - Prometheus `/metrics`, live `/screen.bmp` screenshots, optional password (HTTP Basic Auth) covering the panel and the whole API
 
@@ -91,6 +92,7 @@ The same radar, compiled for Android from the same core sources, so every featur
 - The canvas adapts to the screen: tablets render more list rows, a bigger radar and larger type instead of a stretched frame
 - The web panel runs inside the app at `http://<phone-ip>:8080`
 - Wi-Fi setup is not needed (the system connection is used) and settings apply live, no restart
+- In the background the app stops all network traffic and picks up again when it is back on screen
 - Source lives in [`apkflight/`](apkflight/), a thin SDL2 + shim layer over the shared code
 
 ## Setting up the integrations
