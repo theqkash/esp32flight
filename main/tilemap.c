@@ -71,8 +71,13 @@ void tilemap_init(void)
 /* LRU cache of compressed tile PNGs in PSRAM: repeat map opens render
  * instantly and survive short network outages. Guarded by s_render_mux
  * (all access happens inside a render). */
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+#define TCACHE_N       256
+#define TCACHE_BUDGET  (4 * 1024 * 1024)
+#else
 #define TCACHE_N       128
 #define TCACHE_BUDGET  (768 * 1024)   /* PSRAM got crowded; transient buffers need headroom */
+#endif
 
 typedef struct {
     uint32_t key;           /* (z << 26) | (tx << 13) | ty */
@@ -201,6 +206,7 @@ static void tcache_put(uint32_t key, const uint8_t *data, uint32_t len)
 #define FTILE_MIN_FREE   (700 * 1024)
 
 static bool s_ftile_dir_ok;
+static bool s_ftile_disabled;
 
 static void ftile_path(char *out, size_t n, uint32_t key)
 {
@@ -235,9 +241,19 @@ static uint8_t *ftile_get(uint32_t key, size_t *len)
 
 static void ftile_put(uint32_t key, const uint8_t *data, size_t len)
 {
+    if (s_ftile_disabled) {
+        return;
+    }
     size_t total = 0, used = 0;
+    /* SPIFFS GC stalls CPU0 for seconds and fails writes once occupancy
+     * climbs past ~75% on a crowded partition. Skip flash caching and rely
+     * on the PSRAM cache when headroom is tight. */
     if (esp_spiffs_info("assets", &total, &used) != ESP_OK ||
-        total - used < FTILE_MIN_FREE + len) {
+        total - used < FTILE_MIN_FREE + len ||
+        used > (total * 3) / 4) {
+        ESP_LOGI(TAG, "flash tile cache paused (assets %u/%u KB used); using RAM cache",
+                 (unsigned)(used / 1024), (unsigned)(total / 1024));
+        s_ftile_disabled = true;
         return;
     }
     if (!s_ftile_dir_ok) {
@@ -248,18 +264,21 @@ static void ftile_put(uint32_t key, const uint8_t *data, size_t len)
     ftile_path(path, sizeof(path), key);
     FILE *f = fopen(path, "wb");
     if (f == NULL) {
-        ESP_LOGW(TAG, "ftile open-for-write failed: %s", path);
+        ESP_LOGW(TAG, "ftile open-for-write failed: %s (disabling flash tile cache)", path);
+        s_ftile_disabled = true;
         return;
     }
     {
         size_t wr = fwrite(data, 1, len, f);
         fclose(f);
         if (wr != len) {
-            ESP_LOGW(TAG, "ftile short write %u/%u: %s", (unsigned)wr, (unsigned)len, path);
+            ESP_LOGW(TAG, "ftile short write %u/%u: %s (disabling flash tile cache)",
+                     (unsigned)wr, (unsigned)len, path);
             /* short write (full/failing FS): a truncated PNG poisons the
              * cache - every later render would hit it, fail the decode
              * and, before the retry logic below existed, never recover */
             unlink(path);
+            s_ftile_disabled = true;
         }
     }
 }
@@ -280,6 +299,7 @@ static void ftile_unlink(uint32_t key)
 
 static void ftile_wipe_all(void)
 {
+    s_ftile_disabled = false;
     DIR *d = opendir(FTILE_DIR);
     if (d != NULL) {
         struct dirent *e;
