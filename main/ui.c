@@ -1770,8 +1770,8 @@ static lv_point_t (*s_x_asp_pts)[MAX_ASP_POINTS + 1];
 static lv_color_t airspace_color(int type)
 {
     switch (type) {
-    case 4: case 27:          return lv_color_hex(0xe06666);  /* CTR/MCTR */
-    case 7: case 26: case 13: return lv_color_hex(0x6fa8dc);  /* TMA/MTMA/ATZ */
+    case 4: case 36:          return lv_color_hex(0xe06666);  /* CTR/MCTR */
+    case 7: case 26: case 13: return lv_color_hex(0x6fa8dc);  /* TMA/CTA/ATZ */
     default:                  return lv_color_hex(0xe6b34d);  /* R/D/P/TRA */
     }
 }
